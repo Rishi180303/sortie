@@ -3,18 +3,17 @@ import unicodedata
 
 _YEAR_PAREN = re.compile(r"\s*\(((?:19|20)\d{2})\)\s*$")
 
-# "40th Anniversary", "45TH ANNIV.", "20th anniversary edition"
+# 40th anniversary, 45th anniv., anniversary edition
 _ANNIVERSARY = re.compile(
     r"\s*\b\d{1,3}(?:st|nd|rd|th)\s+anniv(?:ersary)?\.?(?:\s+(?:edition|screening|event))?\b",
     re.IGNORECASE,
 )
 
-# Trailing " – Studio Ghibli Fest 2026", " - Fathom Fest", etc.
+# trailing festival names like "– studio ghibli fest 2026"
 _FESTIVAL_SUFFIX = re.compile(r"\s*[-–—]\s*[^-–—]*\bfest(?:ival)?\b[^-–—]*$", re.IGNORECASE)
 
-# Words that are unambiguous format markers even without a separator ("Coraline 3D").
-# Ambiguous words (premiere, restoration, encore, sub, dub, extended, final cut) strip
-# only after a separator or inside parentheses, so "World Premiere" keeps its title.
+# these are clearly formats even without a separator, like "coraline 3d"
+# ambiguous words like premiere only strip after a separator or in parens
 _BARE_FORMAT_WORDS = (
     r"imax|the imax experience|3d|2d|4dx|dolby(?: cinema| atmos)?|real ?d ?3d|"
     r"dubbed|subtitled|remastered|4k(?: restoration| remaster)?|re-?release"
@@ -25,7 +24,7 @@ _FORMAT_WORDS = (
     r"the final cut|final cut|remastered|restoration|4k(?: restoration| remaster)?|"
     r"re-?release|encore|special engagement|fan event|early access|premiere"
 )
-# " - IMAX", ": The IMAX Experience", " (Dubbed)", " 3D"
+# " - imax", ": the imax experience", " (dubbed)", " 3d"
 _FORMAT_SUFFIX = re.compile(
     rf"(?:\s*[-–—:]\s*(?:the\s+)?(?:{_FORMAT_WORDS})|\s*\((?:{_FORMAT_WORDS})\)|\s+(?:{_BARE_FORMAT_WORDS}))\s*$",
     re.IGNORECASE,
@@ -60,7 +59,7 @@ def normalize_title(raw: str) -> str:
     s = _DISTRIBUTOR_PREFIX.sub("", s)
     s = _ANNIVERSARY.sub("", s)
     s = _FESTIVAL_SUFFIX.sub("", s)
-    # formats can stack ("Interstellar - IMAX 3D"); strip until stable
+    # formats can stack like "imax 3d", so keep stripping until nothing changes
     prev = None
     while prev != s:
         prev = s
