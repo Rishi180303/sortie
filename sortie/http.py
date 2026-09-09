@@ -115,6 +115,8 @@ class HttpClient:
             if self.warm_url:
                 self._raw("GET", self.warm_url, None, None, None)
         err = f"HTTP {last_status} after {self.retries + 1} attempt(s)"
+        # keep the failed body so we can see why the site blocked us
+        self._archive(f"{target}-{last_status}", text)
         self.records.append(FetchRecord(self.source, target, url, last_status, False, err))
         raise FetchError(url, last_status, err)
 

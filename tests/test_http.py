@@ -86,6 +86,16 @@ def test_archives_response(tmp_path: Path):
     assert files[0].read_text() == '{"a":1}'
 
 
+def test_archives_failed_response(tmp_path: Path):
+    c, ft, _, _ = make([(403, "blocked")], min_interval_s=0, retries=0, archive_dir=tmp_path)
+    with pytest.raises(FetchError):
+        c.get("https://x.test/napi/thing", target="thing")
+    files = list((tmp_path / "2026-09-08").iterdir())
+    assert len(files) == 1
+    assert files[0].name == "test-thing-403.txt"
+    assert files[0].read_text() == "blocked"
+
+
 def test_post_json_sends_body():
     c, ft, _, _ = make([(200, '{"id":"m1"}')], min_interval_s=0)
     r = c.post_json("https://x.test/emails", target="emails", body={"to": ["a@b.c"]})
