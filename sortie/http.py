@@ -57,7 +57,7 @@ def curl_cffi_transport(impersonate: str = "chrome") -> Transport:
     return transport
 
 
-@dataclass
+@dataclass(kw_only=True)
 class HttpClient:
     source: str
     min_interval_s: float = 1.0
@@ -85,7 +85,6 @@ class HttpClient:
 
     def _raw(self, method, url, headers, params, body) -> tuple[int, str]:
         self._throttle()
-        assert self.transport is not None
         return self.transport(method, url, headers, params, body)
 
     def _archive(self, target: str, text: str) -> None:
@@ -95,9 +94,13 @@ class HttpClient:
         d.mkdir(parents=True, exist_ok=True)
         safe = re.sub(r"[^A-Za-z0-9._-]+", "_", target)[:120]
         ext = "json" if text.lstrip().startswith(("{", "[")) else "txt"
-        n = len(list(d.glob(f"{self.source}-{safe}*")))
-        suffix = "" if n == 0 else f"-{n}"
-        (d / f"{self.source}-{safe}{suffix}.{ext}").write_text(text)
+        # if we already saved this one today, number the new copy
+        path = d / f"{self.source}-{safe}.{ext}"
+        n = 1
+        while path.exists():
+            path = d / f"{self.source}-{safe}-{n}.{ext}"
+            n += 1
+        path.write_text(text)
 
     def _request(self, method, url, *, target, headers, params, body) -> FetchResult:
         last_status: int | None = None
