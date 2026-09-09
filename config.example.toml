@@ -1,0 +1,20 @@
+[location]
+postal_code = "10001"
+radius_miles = 25
+
+[letterboxd]
+username = "your-username"
+
+[sources]
+amc = true          # requires AMC_VENDOR_KEY (Plan 2)
+fandango = false    # opt-in — see README on terms of use
+fathom = true       # Plan 2
+
+[alerts]
+send_hour = 9
+approaching_days = 5
+rerelease_gap_years = 2
+
+[matching]
+min_score = 0.6
+min_margin = 0.2
