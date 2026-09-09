@@ -1,5 +1,6 @@
-import pytest
 from urllib.parse import urlencode
+
+import pytest
 
 from sortie.http import HttpClient
 
