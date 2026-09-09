@@ -38,3 +38,7 @@ out/
 CLAUDE.md
 .claude/
 docs/superpowers/
+
+# SDD scratch and worktrees (local-only)
+.superpowers/
+.worktrees/
