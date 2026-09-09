@@ -35,6 +35,10 @@ def _year(s: str | None) -> int | None:
     return int(s[:4]) if s and len(s) >= 4 and s[:4].isdigit() else None
 
 
+def _popularity(candidate: TmdbCandidate) -> float:
+    return candidate.popularity
+
+
 class TmdbClient:
     def __init__(self, api_key: str, http: HttpClient):
         self.api_key = api_key
@@ -47,18 +51,20 @@ class TmdbClient:
             params={"api_key": self.api_key, "query": query, "include_adult": "false"},
         )
         results = json.loads(r.text).get("results", [])
-        cands = [
-            TmdbCandidate(
-                tmdb_id=x["id"],
-                title=x.get("title") or "",
-                original_title=x.get("original_title") or "",
-                release_year=_year(x.get("release_date")),
-                popularity=float(x.get("popularity") or 0.0),
+        candidates = []
+        for item in results:
+            candidates.append(
+                TmdbCandidate(
+                    tmdb_id=item["id"],
+                    title=item.get("title") or "",
+                    original_title=item.get("original_title") or "",
+                    release_year=_year(item.get("release_date")),
+                    popularity=float(item.get("popularity") or 0.0),
+                )
             )
-            for x in results
-        ]
-        cands.sort(key=lambda c: c.popularity, reverse=True)
-        return cands[:limit]
+        # most popular first, so the obvious match is at the top
+        candidates.sort(key=_popularity, reverse=True)
+        return candidates[:limit]
 
     def film(self, tmdb_id: int) -> TmdbFilm:
         r = self.http.get(
@@ -71,8 +77,16 @@ class TmdbClient:
         )
         d = json.loads(r.text)
         crew = d.get("credits", {}).get("crew", [])
-        director = next((c["name"] for c in crew if c.get("job") == "Director"), None)
-        cast_top = [c["name"] for c in d.get("credits", {}).get("cast", [])[:5]]
+        # tmdb lists the director under crew, not cast
+        director = None
+        for member in crew:
+            if member.get("job") == "Director":
+                director = member["name"]
+                break
+
+        cast_top = []
+        for c in d.get("credits", {}).get("cast", [])[:5]:
+            cast_top.append(c["name"])
 
         us_dates: list[date] = []
         for entry in d.get("release_dates", {}).get("results", []):
@@ -82,19 +96,22 @@ class TmdbClient:
                 if rd.get("type") in _US_THEATRICAL_TYPES and rd.get("release_date"):
                     us_dates.append(date.fromisoformat(rd["release_date"][:10]))
 
-        alt = [
-            t["title"] for t in d.get("alternative_titles", {}).get("titles", []) if t.get("title")
-        ]
-        tr = [
-            t["data"]["title"]
-            for t in d.get("translations", {}).get("translations", [])
-            if t.get("data", {}).get("title")
-        ]
+        alt = []
+        for t in d.get("alternative_titles", {}).get("titles", []):
+            if t.get("title"):
+                alt.append(t["title"])
+
+        tr = []
+        for t in d.get("translations", {}).get("translations", []):
+            title = t.get("data", {}).get("title")
+            if title:
+                tr.append(title)
+
         return TmdbFilm(
             tmdb_id=d["id"],
             title=d.get("title") or "",
             original_title=d.get("original_title"),
-            runtime_minutes=d.get("runtime") or None,
+            runtime_minutes=d.get("runtime"),
             director=director,
             cast_top=cast_top,
             us_theatrical_date=min(us_dates) if us_dates else None,
