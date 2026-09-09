@@ -32,10 +32,12 @@ def test_strip_year(raw, expected):
         ("Blade Runner: The Final Cut", "blade runner"),
         ("Aliens (Extended Edition)", "aliens"),
         ("Coraline 3D", "coraline"),
-        ("Mononoke Hime", "mononoke hime"),
+        ("Mononoke\xa0Hime", "mononoke hime"),
         ("Amélie", "amelie"),
         ("Fast & Furious", "fast and furious"),
         ("RiffTrax: Plan 9 from Outer Space", "plan 9 from outer space"),
+        ("World Premiere", "world premiere"),
+        ("The Restoration", "the restoration"),
     ],
 )
 def test_normalize_title(raw, expected):

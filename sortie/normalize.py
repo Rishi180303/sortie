@@ -12,6 +12,13 @@ _ANNIVERSARY = re.compile(
 # Trailing " – Studio Ghibli Fest 2026", " - Fathom Fest", etc.
 _FESTIVAL_SUFFIX = re.compile(r"\s*[-–—]\s*[^-–—]*\bfest(?:ival)?\b[^-–—]*$", re.IGNORECASE)
 
+# Words that are unambiguous format markers even without a separator ("Coraline 3D").
+# Ambiguous words (premiere, restoration, encore, sub, dub, extended, final cut) strip
+# only after a separator or inside parentheses, so "World Premiere" keeps its title.
+_BARE_FORMAT_WORDS = (
+    r"imax|the imax experience|3d|2d|4dx|dolby(?: cinema| atmos)?|real ?d ?3d|"
+    r"dubbed|subtitled|remastered|4k(?: restoration| remaster)?|re-?release"
+)
 _FORMAT_WORDS = (
     r"imax|the imax experience|3d|2d|4dx|dolby(?: cinema| atmos)?|real ?d ?3d|"
     r"dubbed|subtitled|sub|dub|extended(?: edition| cut)?|director'?s (?:cut|edition)|"
@@ -20,7 +27,7 @@ _FORMAT_WORDS = (
 )
 # " - IMAX", ": The IMAX Experience", " (Dubbed)", " 3D"
 _FORMAT_SUFFIX = re.compile(
-    rf"(?:\s*[-–—:]\s*(?:the\s+)?(?:{_FORMAT_WORDS})|\s*\((?:{_FORMAT_WORDS})\)|\s+(?:{_FORMAT_WORDS}))\s*$",
+    rf"(?:\s*[-–—:]\s*(?:the\s+)?(?:{_FORMAT_WORDS})|\s*\((?:{_FORMAT_WORDS})\)|\s+(?:{_BARE_FORMAT_WORDS}))\s*$",
     re.IGNORECASE,
 )
 
@@ -39,7 +46,7 @@ def strip_year(raw: str) -> tuple[str, int | None]:
 
 
 def _fold(s: str) -> str:
-    s = s.replace(" ", " ")
+    s = s.replace("\xa0", " ")
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.replace("&", " and ")
