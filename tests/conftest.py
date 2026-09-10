@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from sortie.http import HttpClient
 from sortie.models import Base
+from sortie.sources.base import FilmDetails
 
 TEST_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://sortie:sortie@localhost:5432/sortie_test"
@@ -63,3 +64,25 @@ def db(engine):
         session.close()
         tx.rollback()
         conn.close()
+
+
+class FakeSource:
+    name = "fake"
+
+    def __init__(self, theatres=None, showings=None, details=None):
+        self.theatres = list(theatres or [])
+        self.showings_by_theatre = dict(showings or {})
+        self.details_by_film = dict(details or {})
+        self.detail_calls: list[str] = []
+        self.showing_calls: list[str] = []
+
+    def nearby_theatres(self, postal_code, radius_miles):
+        return self.theatres
+
+    def showings(self, source_theatre_id):
+        self.showing_calls.append(source_theatre_id)
+        return self.showings_by_theatre.get(source_theatre_id, [])
+
+    def film_details(self, source_film_id, film_url=None):
+        self.detail_calls.append(source_film_id)
+        return self.details_by_film.get(source_film_id, FilmDetails(None, None, []))
