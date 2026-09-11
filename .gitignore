@@ -41,3 +41,6 @@ docs/superpowers/
 # SDD scratch and worktrees (local-only)
 .superpowers/
 .worktrees/
+
+# handoff notes (local-only)
+handoff.md
