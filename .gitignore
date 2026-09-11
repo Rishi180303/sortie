@@ -44,3 +44,7 @@ docs/superpowers/
 
 # handoff notes (local-only)
 handoff.md
+
+# graphify knowledge graph output (local-only)
+graphify-out/
+.graphify/
