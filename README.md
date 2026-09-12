@@ -26,7 +26,7 @@ It also tells you when an older film comes back to a screen near you. It only em
 
 ## status
 
-Early. The collector is being built in stages. The parts that exist are tested and work against the real sites: watchlist sync, film metadata, the database, and theatre discovery. The showtime source, the matching, and the email digest are next, then a small web page for picking theatres. Until the daily runner lands there is nothing to run yet.
+The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web page for picking favourite theatres has not been built yet. For now you mark a theatre as a favourite with a direct sql update, see "running it" below. AMC and Fathom are not implemented yet either, so Fandango is the only showtime source that exists.
 
 ## how it matches films
 
@@ -60,11 +60,30 @@ cp config.example.toml config.toml
 uv run alembic upgrade head
 ```
 
+`alembic upgrade head` reads `DATABASE_URL` from `.env`, the same as the app does, so it needs no extra setup.
+
 Resend can send to your own account email without any domain setup.
+
+## running it
+
+```bash
+uv run sortie refresh-theatres   # fetch theatres near your zip code
+uv run sortie run                # one full pass: sync watchlist, sweep showtimes, match, email
+uv run sortie schedule           # run once a day at [alerts].send_hour, forever
+uv run sortie serve              # start a small health-check API
+```
+
+Run `refresh-theatres` once before your first `run`. After that, `run` refreshes theatres on its own every 30 days.
+
+There is no command yet for picking favourite theatres. That is plan 3. Until then, mark one directly in postgres:
+
+```sql
+update theatre set is_favourite = true where name = 'AMC Metro 14';
+```
 
 ## a note on data sources
 
-The AMC catalog API is free for noncommercial use on request and is the preferred source for AMC theatres. Fandango covers every chain but has no public API and its terms prohibit automated access, so it is off by default and you turn it on yourself in `config.toml`. sortie requests politely, one request a second and once a day, and keeps a copy of every response so a broken parser can be fixed offline.
+The AMC catalog API is free for noncommercial use on request and is the preferred source for AMC theatres, but the AMC adapter has not been built yet. Fandango covers every chain but has no public API and its terms prohibit automated access, so it is off by default and you turn it on yourself with `fandango = true` in `config.toml`. Fandango is the only showtime source that exists right now, so with the default `fandango = false` sortie has nothing to check and will never find a showtime. sortie requests politely, one request a second and once a day, and keeps a copy of every response so a broken parser can be fixed offline.
 
 ## running the tests
 
