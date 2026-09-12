@@ -104,6 +104,20 @@ def test_non_fetch_error_is_isolated_per_theatre(db):
     assert r.showings_upserted == 1
 
 
+def test_missing_date_is_dropped_but_zero_result_run_keeps_rows(db):
+    seed_theatres(db, "zz001")
+    sweep_showtimes(db, FakeSource(showings={"zz001": [S1, S2]}), NOW, TODAY)
+    later = NOW + timedelta(days=1)
+    sweep_showtimes(db, FakeSource(showings={"zz001": [S1]}), later, TODAY)
+    dates = db.execute(select(Showing.show_date)).scalars().all()
+    assert dates == [date(2026, 9, 10)]  # the 9/11 date fandango stopped listing is gone
+
+    even_later = later + timedelta(hours=1)
+    sweep_showtimes(db, FakeSource(showings={"zz001": []}), even_later, TODAY)
+    dates = db.execute(select(Showing.show_date)).scalars().all()
+    assert dates == [date(2026, 9, 10)]  # a zero-result sweep deletes nothing
+
+
 def test_untracked_and_other_source_theatres_are_skipped(db):
     seed_theatres(db, "zz001", tracked=False)
     seed_theatres(db, "other1", source="othersrc")

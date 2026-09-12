@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from sortie.models import Showing, SourceFilm, Theatre
@@ -89,5 +89,14 @@ def sweep_showtimes(db: Session, source: ShowtimeSource, now: datetime, today: d
                 show.show_times = list(info.show_times)
                 show.last_seen = now
             res.showings_upserted += 1
+
+        # drop showings the source no longer lists for this theatre
+        db.execute(
+            delete(Showing).where(
+                Showing.theatre_id == t.id,
+                Showing.show_date >= today,
+                Showing.last_seen < now,
+            )
+        )
         db.commit()
     return res
