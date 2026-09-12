@@ -71,14 +71,16 @@ def _lines_for(db: Session, tmdb_id: int, today: date) -> dict[int, TheatreLine]
     return lines
 
 
-def _entry(db: Session, tmdb_id: int, kinds: list[str], today: date) -> FilmEntry | None:
+def _entry(
+    db: Session, tmdb_id: int, kinds: list[str], today: date
+) -> tuple[FilmEntry | None, bool]:
     film, state = db.get(Film, tmdb_id), db.get(FilmState, tmdb_id)
     if film is None or state is None or state.earliest_theatre_id is None:
-        return None
+        return None, False
     lines = _lines_for(db, tmdb_id, today)
     earliest = lines.get(state.earliest_theatre_id)
     if earliest is None:
-        return None
+        return None, False
     at_fav = lines.get(state.earliest_fav_theatre_id) if state.earliest_fav_theatre_id else None
     used = {state.earliest_theatre_id, state.earliest_fav_theatre_id}
 
@@ -94,8 +96,12 @@ def _entry(db: Session, tmdb_id: int, kinds: list[str], today: date) -> FilmEntr
     others.sort(key=sort_key)
 
     year = film.us_theatrical_date.year if film.us_theatrical_date else None
-    return FilmEntry(
-        tmdb_id, film.title, year, tuple(sorted(kinds)), earliest, at_fav, tuple(others)
+    return (
+        FilmEntry(
+            tmdb_id, film.title, year, tuple(sorted(kinds)), earliest, at_fav,
+            tuple(others)
+        ),
+        state.is_watchlist,
     )
 
 
@@ -115,13 +121,12 @@ def build_digest(
     sections: dict[str, list[FilmEntry]] = defaultdict(list)
     for tmdb_id, film_alerts in alerts.items():
         kinds = [a.kind for a in film_alerts]
-        entry = _entry(db, tmdb_id, kinds, today)
+        entry, is_watchlist = _entry(db, tmdb_id, kinds, today)
         if entry is None:
             continue
-        state = db.get(FilmState, tmdb_id)
         if kinds == ["approaching"]:
             sections["soon"].append(entry)
-        elif state is not None and state.is_watchlist:
+        elif is_watchlist:
             sections["watchlist"].append(entry)
         else:
             sections["rereleases"].append(entry)
@@ -172,23 +177,21 @@ def _render_entry(e: FilmEntry) -> list[str]:
     kinds_str = ", ".join(KIND_LABEL[k] for k in e.kinds)
     out = [f"{head}  — {kinds_str}"]
 
-    earliest_line = (
+    out.append(
         f"  Earliest anywhere   {_fmt_date(e.earliest.date)}  ·  "
         f"{e.earliest.name:<24}{_mi(e.earliest.distance_miles)}"
     )
-    out.append(earliest_line)
 
     if e.at_fav is not None:
-        fav_line = f"  Your theatres       {_fmt_date(e.at_fav.date)}  ·  {e.at_fav.name}"
-        out.append(fav_line)
+        out.append(
+            f"  Your theatres       {_fmt_date(e.at_fav.date)}  ·  {e.at_fav.name}"
+        )
         gap = (e.at_fav.date - e.earliest.date).days
         if gap > 0:
-            gap_text = f"  ↳ {gap} day{'s' if gap != 1 else ''} earlier if you drive"
-            out.append(gap_text)
+            out.append(f"  ↳ {gap} day{'s' if gap != 1 else ''} earlier if you drive")
     else:
         out.append("  Your theatres       — not playing at your favourites —")
-        nearest_text = f"  ↳ nearest is {_mi(e.earliest.distance_miles) or 'unknown'}"
-        out.append(nearest_text)
+        out.append(f"  ↳ nearest is {_mi(e.earliest.distance_miles) or 'unknown'}")
 
     if e.others:
         # build "Also" line: one part per theatre showing date, format each, join
@@ -198,8 +201,7 @@ def _render_entry(e: FilmEntry) -> list[str]:
             if o.distance_miles is not None:
                 part = part + f" ({_mi(o.distance_miles)})"
             also_parts.append(part)
-        also = "  ·  ".join(also_parts)
-        out.append(f"  Also  {also}")
+        out.append(f"  Also  {'  ·  '.join(also_parts)}")
     return out
 
 
@@ -218,10 +220,10 @@ def render_text(d: Digest) -> str:
                 lines += _render_entry(e) + [""]
     if d.needs_input:
         n = d.needs_input
-        plural = "s" if n != 1 else ""
-        verb_form = "s" if n == 1 else ""
-        input_line = f"{n} film{plural} need{verb_form} your input in the match queue."
-        lines += [input_line, ""]
+        lines += [
+            f"{n} film{'s' if n != 1 else ''} need{'s' if n == 1 else ''} your input in the match queue.",
+            "",
+        ]
     if d.health:
         lines += ["—", *(f"  {h}" for h in d.health)]
     return "\n".join(lines).rstrip() + "\n"
