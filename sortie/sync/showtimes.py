@@ -4,7 +4,6 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sortie.http import FetchError
 from sortie.models import Showing, SourceFilm, Theatre
 from sortie.sources.base import ShowtimeSource
 
@@ -38,7 +37,7 @@ def sweep_showtimes(db: Session, source: ShowtimeSource, now: datetime, today: d
     for t in theatres:
         try:
             infos = source.showings(t.source_theatre_id)
-        except FetchError as e:
+        except Exception as e:  # one theatre failing must not stop the sweep
             res.failures.append(f"{t.name}: {e}")
             continue
         res.theatres += 1

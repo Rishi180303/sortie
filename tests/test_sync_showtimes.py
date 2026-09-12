@@ -90,6 +90,20 @@ def test_fetch_error_isolated_per_theatre(db):
     assert r.showings_upserted == 1
 
 
+def test_non_fetch_error_is_isolated_per_theatre(db):
+    seed_theatres(db, "zz001", "zz002")
+
+    class Flaky(FakeSource):
+        def showings(self, source_theatre_id):
+            if source_theatre_id == "zz001":
+                raise ValueError("boom")
+            return super().showings(source_theatre_id)
+
+    r = sweep_showtimes(db, Flaky(showings={"zz002": [S1]}), NOW, TODAY)
+    assert len(r.failures) == 1 and "T zz001" in r.failures[0]
+    assert r.showings_upserted == 1
+
+
 def test_untracked_and_other_source_theatres_are_skipped(db):
     seed_theatres(db, "zz001", tracked=False)
     seed_theatres(db, "other1", source="othersrc")

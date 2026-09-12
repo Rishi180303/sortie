@@ -169,7 +169,11 @@ def run_daily(
 
         # 5. resolve source films against tmdb
         for src in rt.sources:
-            rr = resolve_pending(db, src, rt.tmdb, cfg.matching, now)
+            try:
+                rr = resolve_pending(db, src, rt.tmdb, cfg.matching, now)
+            except Exception as e:  # one source failing must not stop the run
+                report.failures.append(f"{src.name} resolve: {e}")
+                continue
             report.resolves.append(rr)
             report.health.extend(f"{src.name} resolve: {e}" for e in rr.errors)
             if rr.resolved or rr.queued:
