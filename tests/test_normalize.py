@@ -1,6 +1,6 @@
 import pytest
 
-from sortie.normalize import normalize_name, normalize_title, strip_year
+from sortie.normalize import has_rerelease_marker, normalize_name, normalize_title, strip_year
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,13 @@ def test_normalize_name():
     assert normalize_name("Hayao Miyazaki") == "hayao miyazaki"
     assert normalize_name("  Guillermo del Toro ") == "guillermo del toro"
     assert normalize_name("Ang Lee") == normalize_name("ANG LEE")
+
+
+def test_rerelease_marker():
+    assert has_rerelease_marker("The Transformers: The Movie 40th Anniversary (2026)")
+    assert has_rerelease_marker("Paris, Texas (4K Restoration)")
+    assert has_rerelease_marker("Heat: Remastered")
+    assert has_rerelease_marker("Interstellar Re-Release")
+    assert has_rerelease_marker("Jaws rerelease")
+    assert not has_rerelease_marker("Primetime (2026)")
+    assert not has_rerelease_marker("Coraline 3D")

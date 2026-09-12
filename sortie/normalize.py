@@ -70,3 +70,13 @@ def normalize_title(raw: str) -> str:
 
 def normalize_name(raw: str) -> str:
     return _fold(raw)
+
+
+# the words a listing uses when it brings an old film back (spec §9)
+_RERELEASE_MARKER = re.compile(
+    r"\b(?:anniversary|restoration|remastered|re-?release)\b", re.IGNORECASE
+)
+
+
+def has_rerelease_marker(raw: str) -> bool:
+    return _RERELEASE_MARKER.search(raw) is not None
