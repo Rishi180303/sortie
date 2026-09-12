@@ -52,7 +52,12 @@ def build_runtime(cfg: Config, secrets: Secrets, archive_dir: Path = Path("raw")
     mail_http = HttpClient(source="resend", min_interval_s=0)
     sources: list[ShowtimeSource] = []
     clients = [tmdb_http, lb_http, mail_http]
-    # task 19 appends the fandango source here when cfg.sources.fandango is true.
+    if cfg.sources.fandango:
+        from sortie.sources.fandango import FandangoSource, make_fandango_http
+
+        fh = make_fandango_http(archive_dir)
+        clients.append(fh)
+        sources.append(FandangoSource(fh))
 
     mailer = None
     if secrets.resend_api_key and secrets.alert_email_to:
