@@ -120,3 +120,58 @@ def test_post_json_sends_body():
     r = c.post_json("https://x.test/emails", target="emails", body={"to": ["a@b.c"]})
     assert r.status == 200
     assert ft.calls[0][0] == "POST" and ft.calls[0][4] == '{"to": ["a@b.c"]}'
+
+
+class FlakyWarmTransport:
+    # the real request keeps failing with 403 and the warm-up ping raises
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, method, url, headers, params, json_body):
+        self.calls.append(url)
+        if url == "https://x.test/":
+            raise OSError("warm-up reset")
+        return 403, "blocked"
+
+
+def test_warm_up_transport_error_does_not_escape():
+    ft = FlakyWarmTransport()
+    c = HttpClient(
+        source="test",
+        transport=ft,
+        min_interval_s=0,
+        sleeper=lambda s: None,
+        retries=1,
+        warm_url="https://x.test/",
+    )
+    with pytest.raises(FetchError):
+        c.get("https://x.test/a", target="a")
+    assert ft.calls == ["https://x.test/a", "https://x.test/", "https://x.test/a"]
+
+
+class ThenRaisingTransport:
+    # first a 500 with a body, then the connection drops
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, method, url, headers, params, json_body):
+        self.calls += 1
+        if self.calls == 1:
+            return 500, "server error page"
+        raise OSError("connection reset")
+
+
+def test_transport_error_after_http_error_archives_nothing(tmp_path: Path):
+    c = HttpClient(
+        source="test",
+        transport=ThenRaisingTransport(),
+        min_interval_s=0,
+        sleeper=lambda s: None,
+        retries=1,
+        archive_dir=tmp_path,
+        today=lambda: date(2026, 9, 8),
+    )
+    with pytest.raises(FetchError):
+        c.get("https://x.test/a", target="a")
+    assert not (tmp_path / "2026-09-08").exists()
+    assert c.records[-1].status is None

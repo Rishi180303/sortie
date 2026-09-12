@@ -111,7 +111,7 @@ class HttpClient:
                 status, text = self._raw(method, url, headers, params, body)
             except OSError as e:
                 # a transport error (timeout, dns, connection reset) is a retryable attempt too
-                status, last_error = None, str(e)
+                status, text, last_error = None, "", str(e)
             last_status = status
             if status is not None and 200 <= status < 300:
                 self._archive(target, text)
@@ -122,13 +122,17 @@ class HttpClient:
             delay = self.backoff_s[min(attempt, len(self.backoff_s) - 1)]
             self.sleeper(delay)
             if self.warm_url:
-                self._raw("GET", self.warm_url, None, None, None)
+                try:
+                    self._raw("GET", self.warm_url, None, None, None)
+                except OSError:
+                    pass  # a failed warm-up only means the next attempt is not warmed
         if last_status is None:
             err = f"transport error after {self.retries + 1} attempt(s): {last_error}"
         else:
             err = f"HTTP {last_status} after {self.retries + 1} attempt(s)"
         # keep the failed body so we can see why the site blocked us
-        self._archive(f"{target}-{last_status}", text)
+        if text:
+            self._archive(f"{target}-{last_status}", text)
         self.records.append(FetchRecord(self.source, target, url, last_status, False, err))
         raise FetchError(url, last_status, err)
 
