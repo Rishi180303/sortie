@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 
+from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -148,3 +149,12 @@ def test_sunday_heartbeat(engine, db):
         factory(engine), CFG, SECRETS, runtime(make_source(), m), today=date(2026, 9, 13), now=NOW
     )
     assert report.emailed is True and m.sent[0][0] == "sortie: weekly check-in"
+
+
+def test_health_endpoint(engine, db, monkeypatch):
+    from sortie import api
+
+    monkeypatch.setattr(api, "SessionFactory", factory(engine))
+    client = TestClient(api.app)
+    r = client.get("/health")
+    assert r.status_code == 200 and r.json()["ok"] is True
