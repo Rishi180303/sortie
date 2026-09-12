@@ -26,11 +26,13 @@ It also tells you when an older film comes back to a screen near you. It only em
 
 ## status
 
-The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web page for picking favourite theatres has not been built yet. For now you mark a theatre as a favourite with a direct sql update, see "running it" below. AMC and Fathom are not implemented yet either, so Fandango is the only showtime source that exists.
+The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web page for picking favourite theatres has not been built yet. For now you mark a theatre as a favourite with a direct sql update, see "running it" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
 
 ## how it matches films
 
 Letterboxd and cinema listings share no film IDs, so matching is the hard part. Letterboxd gives a TMDb id for each film. Cinema listings only give a title, so sortie looks the title up on TMDb and scores the candidates on director, runtime, and cast. The year is not a deciding signal on purpose, because listings stamp re-releases with the current year. Anything it can't match with confidence goes into a queue for you to click on instead of guessing.
+
+sortie also flags re-releases. A film whose first US release was two or more years ago is a candidate, and it counts as a re-release when the listing says so (anniversary, restoration, remastered, re-release) or when Fathom lists it. The gap alone is never enough. Re-releases near you get their own section in the email, even when the film is not on your watchlist.
 
 ## setup
 

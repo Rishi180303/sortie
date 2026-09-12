@@ -8,7 +8,7 @@ username = "your-username"
 [sources]
 amc = true          # requires AMC_VENDOR_KEY (Plan 2)
 fandango = false    # opt-in — see README on terms of use
-fathom = true       # Plan 2
+fathom = true
 
 [alerts]
 send_hour = 9
