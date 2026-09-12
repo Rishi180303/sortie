@@ -117,6 +117,16 @@ def test_first_run_emails_watchlist_hit(engine, db):
         )
 
 
+def test_no_mailer_does_not_mark_alert_sent(engine, db):
+    src = make_source(
+        {"far": [ShowingInfo("900", "Primetime (2026)", 2026, date(2026, 9, 25), ["19:00"])]}
+    )
+    report = run_daily(factory(engine), CFG, SECRETS, runtime(src, None), today=TODAY, now=NOW)
+    assert report.emailed is False
+    with factory(engine)() as s:
+        assert s.get(FilmState, 1).alerted_new_at is None
+
+
 def test_unchanged_second_run_sends_nothing(engine, db):
     src = make_source(
         {"far": [ShowingInfo("900", "Primetime (2026)", 2026, date(2026, 9, 25), ["19:00"])]}

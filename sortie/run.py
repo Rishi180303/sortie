@@ -189,7 +189,8 @@ def run_daily(
             ts = transitions(state, today, cfg.alerts.approaching_days)
             if ts:
                 alerts[state.tmdb_id] = ts
-                mark_alerted(state, ts, now)
+                if rt.mailer is not None:
+                    mark_alerted(state, ts, now)
         report.alerts = len(alerts)
         needs_input = (
             db.execute(
