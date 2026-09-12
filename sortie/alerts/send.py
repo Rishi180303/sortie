@@ -20,4 +20,4 @@ def send_email(
         headers={"Authorization": f"Bearer {api_key}"},
         body={"from": from_addr, "to": [to], "subject": subject, "text": text, "html": html},
     )
-    return json.loads(r.text).get("id", "")
+    return json.loads(r.text)["id"]
