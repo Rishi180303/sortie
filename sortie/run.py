@@ -10,6 +10,7 @@ from sortie.alerts.diff import Alert, mark_alerted, transitions
 from sortie.alerts.digest import build_digest, is_empty, render_html, render_text, subject
 from sortie.alerts.send import send_email
 from sortie.alerts.state import compute_film_states
+from sortie.clients.fathom import FathomClient
 from sortie.clients.letterboxd import LetterboxdClient
 from sortie.clients.tmdb import TmdbClient
 from sortie.config import Config, Secrets
@@ -30,6 +31,7 @@ class Runtime:
     lb: LetterboxdClient
     http_clients: list[HttpClient] = field(default_factory=list)
     mailer: Callable[[str, str, str], str] | None = None
+    fathom: FathomClient | None = None
 
 
 @dataclass
@@ -59,6 +61,12 @@ def build_runtime(cfg: Config, secrets: Secrets, archive_dir: Path = Path("raw")
         clients.append(fh)
         sources.append(FandangoSource(fh))
 
+    fathom = None
+    if cfg.sources.fathom:
+        fathom_http = HttpClient(source="fathom", min_interval_s=1.0, archive_dir=archive_dir)
+        clients.append(fathom_http)
+        fathom = FathomClient(fathom_http)
+
     mailer = None
     if secrets.resend_api_key and secrets.alert_email_to:
 
@@ -71,6 +79,7 @@ def build_runtime(cfg: Config, secrets: Secrets, archive_dir: Path = Path("raw")
         lb=LetterboxdClient(lb_http),
         http_clients=clients,
         mailer=mailer,
+        fathom=fathom,
     )
 
 
@@ -184,8 +193,19 @@ def run_daily(
                 )
         db.commit()
 
+        # 6. fathom's active events, one fetch, kept in memory for the re-release check
+        fathom_titles: set[str] = set()
+        if rt.fathom is not None:
+            try:
+                fathom_titles = rt.fathom.active_titles()
+                report.health.append(f"fathom: {len(fathom_titles)} active titles")
+            except Exception as e:  # a dead feed must not stop the run
+                report.failures.append(f"fathom: {e}")
+
         # 7-8. per-film state + alert transitions
-        report.states = compute_film_states(db, today, now)
+        report.states = compute_film_states(
+            db, today, now, fathom_titles=fathom_titles, gap_years=cfg.alerts.rerelease_gap_years
+        )
         alerts: dict[int, list[Alert]] = {}
         for state in db.execute(select(FilmState).where(FilmState.last_computed == now)).scalars():
             ts = transitions(state, today, cfg.alerts.approaching_days)

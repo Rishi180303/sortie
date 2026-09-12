@@ -15,6 +15,7 @@ from sortie.config import (
     Secrets,
     SourcesCfg,
 )
+from sortie.http import FetchError
 from sortie.models import FetchLog, FilmState, Theatre
 from sortie.run import Runtime, run_daily
 from sortie.sources.base import FilmDetails, ShowingInfo, TheatreInfo
@@ -168,3 +169,74 @@ def test_health_endpoint(engine, db, monkeypatch):
     client = TestClient(api.app)
     r = client.get("/health")
     assert r.status_code == 200 and r.json()["ok"] is True
+
+
+class FakeFathom:
+    def __init__(self, titles=None, fail=False):
+        self.titles = set(titles or [])
+        self.fail = fail
+
+    def active_titles(self):
+        if self.fail:
+            raise FetchError("https://api.fathomentertainment.com/api/events", 500, "HTTP 500")
+        return self.titles
+
+
+class TwoFilmTmdb(FakeTmdb):
+    # primetime (new, on the watchlist) plus heat (1995, not on the watchlist)
+    def search(self, query, limit=5):
+        if "heat" in query:
+            return [TmdbCandidate(2, "Heat", "Heat", 1995, 5.0)]
+        return super().search(query, limit)
+
+    def film(self, tmdb_id):
+        if tmdb_id == 2:
+            return TmdbFilm(
+                tmdb_id=2,
+                title="Heat",
+                original_title="Heat",
+                runtime_minutes=170,
+                director="Michael Mann",
+                cast_top=["Al Pacino", "Robert De Niro"],
+                us_theatrical_date=date(1995, 12, 15),
+                poster_path=None,
+                alternative_titles=[],
+                translation_titles=[],
+            )
+        return super().film(tmdb_id)
+
+
+def test_fathom_listing_makes_an_old_film_a_rerelease_alert(engine, db):
+    src = FakeSource(
+        theatres=[TheatreInfo("far", "Landmark Midtown", distance_miles=18.0)],
+        showings={"far": [ShowingInfo("902", "Heat (2026)", 2026, date(2026, 9, 20), ["19:00"])]},
+        details={"902": FilmDetails(170, "Michael Mann", ["Al Pacino", "Robert De Niro"])},
+    )
+    m = Mailer()
+    rt = Runtime(
+        sources=[src],
+        tmdb=TwoFilmTmdb(),
+        lb=FakeLb(),
+        mailer=m,
+        fathom=FakeFathom({"heat", "spirited away"}),
+    )
+    report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+    assert "fathom: 2 active titles" in report.health
+    assert report.alerts == 1 and report.emailed is True
+    assert "RE-RELEASES NEAR YOU" in m.sent[0][1] and "HEAT" in m.sent[0][1]
+    with factory(engine)() as s:
+        assert s.get(FilmState, 2).is_rerelease is True
+
+
+def test_fathom_failure_is_reported_and_emailed(engine, db):
+    m = Mailer()
+    rt = Runtime(
+        sources=[make_source()],
+        tmdb=FakeTmdb(),
+        lb=FakeLb(),
+        mailer=m,
+        fathom=FakeFathom(fail=True),
+    )
+    report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+    assert len(report.failures) == 1 and report.failures[0].startswith("fathom: ")
+    assert report.emailed is True and m.sent[0][0] == "sortie: 1 fetch failure"
