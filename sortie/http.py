@@ -104,20 +104,29 @@ class HttpClient:
 
     def _request(self, method, url, *, target, headers, params, body) -> FetchResult:
         last_status: int | None = None
+        last_error: str | None = None
+        text = ""
         for attempt in range(self.retries + 1):
-            status, text = self._raw(method, url, headers, params, body)
+            try:
+                status, text = self._raw(method, url, headers, params, body)
+            except OSError as e:
+                # a transport error (timeout, dns, connection reset) is a retryable attempt too
+                status, last_error = None, str(e)
             last_status = status
-            if 200 <= status < 300:
+            if status is not None and 200 <= status < 300:
                 self._archive(target, text)
                 self.records.append(FetchRecord(self.source, target, url, status, True))
                 return FetchResult(status, text, url)
-            if not _retryable(status) or attempt == self.retries:
+            if attempt == self.retries or (status is not None and not _retryable(status)):
                 break
             delay = self.backoff_s[min(attempt, len(self.backoff_s) - 1)]
             self.sleeper(delay)
             if self.warm_url:
                 self._raw("GET", self.warm_url, None, None, None)
-        err = f"HTTP {last_status} after {self.retries + 1} attempt(s)"
+        if last_status is None:
+            err = f"transport error after {self.retries + 1} attempt(s): {last_error}"
+        else:
+            err = f"HTTP {last_status} after {self.retries + 1} attempt(s)"
         # keep the failed body so we can see why the site blocked us
         self._archive(f"{target}-{last_status}", text)
         self.records.append(FetchRecord(self.source, target, url, last_status, False, err))

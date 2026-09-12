@@ -77,6 +77,25 @@ def test_404_is_not_retried():
     assert len(ft.calls) == 1
 
 
+class RaisingTransport:
+    def __init__(self, exc):
+        self.exc = exc
+        self.calls = 0
+
+    def __call__(self, method, url, headers, params, json_body):
+        self.calls += 1
+        raise self.exc
+
+
+def test_transport_error_is_retried_then_raises_fetch_error():
+    ft = RaisingTransport(OSError("connection reset"))
+    c = HttpClient(source="test", transport=ft, min_interval_s=0, sleeper=lambda s: None, retries=2)
+    with pytest.raises(FetchError):
+        c.get("https://x.test/a", target="a")
+    assert ft.calls == 3  # initial attempt + 2 retries
+    assert c.records[-1].ok is False and c.records[-1].status is None
+
+
 def test_archives_response(tmp_path: Path):
     c, ft, _, _ = make([(200, '{"a":1}')], min_interval_s=0, archive_dir=tmp_path)
     c.get("https://x.test/napi/thing?x=1", target="thing-x1")
