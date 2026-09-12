@@ -89,7 +89,7 @@ def _entry(db: Session, tmdb_id: int, kinds: list[str], today: date) -> FilmEntr
             others.append(ln)
 
     def sort_key(ln: TheatreLine) -> tuple:
-        return (ln.is_favourite is False, ln.date, ln.distance_miles or 1e9)
+        return (not ln.is_favourite, ln.date, ln.distance_miles if ln.distance_miles is not None else 1e9)
 
     others.sort(key=sort_key)
 
@@ -195,7 +195,7 @@ def _render_entry(e: FilmEntry) -> list[str]:
         also_parts: list[str] = []
         for o in e.others:
             part = f"{_short_date(o.date)} {o.name}"
-            if o.distance_miles:
+            if o.distance_miles is not None:
                 part = part + f" ({_mi(o.distance_miles)})"
             also_parts.append(part)
         also = "  ·  ".join(also_parts)
