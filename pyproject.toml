@@ -19,7 +19,7 @@ dependencies = [
 sortie = "sortie.__main__:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.4"]
+dev = ["pytest>=8", "ruff>=0.4", "httpx>=0.27"]
 
 [build-system]
 requires = ["hatchling"]

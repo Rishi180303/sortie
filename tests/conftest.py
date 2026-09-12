@@ -1,8 +1,9 @@
+import inspect
 import os
 from urllib.parse import urlencode
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from sortie.http import HttpClient
@@ -27,9 +28,9 @@ class RoutedTransport:
     def __call__(self, method, url, headers, params, body):
         full = url + ("?" + urlencode(params) if params else "")
         self.calls.append((method, full, body))
-        for sub, status, text in self.routes:
+        for sub, status, response_text in self.routes:
             if sub in full:
-                return status, text
+                return status, response_text
         raise AssertionError(f"unrouted request: {method} {full}")
 
 
@@ -86,3 +87,17 @@ class FakeSource:
     def film_details(self, source_film_id, film_url=None):
         self.detail_calls.append(source_film_id)
         return self.details_by_film.get(source_film_id, FilmDetails(None, None, []))
+
+
+@pytest.fixture(autouse=True)
+def _truncate_after(request, engine):
+    # run_daily commits its own sessions, so those tests need a clean db after
+    yield
+    # request.fixturenames includes engine transitively (via db), so it can't
+    # tell those tests apart from every other db test. check the test's own
+    # signature instead, so only tests that ask for engine directly pay for it.
+    params = inspect.signature(request.node.function).parameters
+    if "engine" in params:
+        with engine.begin() as conn:
+            for t in reversed(Base.metadata.sorted_tables):
+                conn.execute(text(f'TRUNCATE TABLE "{t.name}" RESTART IDENTITY CASCADE'))
