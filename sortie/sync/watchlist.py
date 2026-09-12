@@ -53,8 +53,7 @@ def sync_watchlist(
         else:
             e.title_raw = item.title
             e.year_raw = item.year
-            if e.removed_at is not None:
-                e.removed_at = None
+            e.removed_at = None
 
     # soft delete entries no longer on the list
     removed = 0

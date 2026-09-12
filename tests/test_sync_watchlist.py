@@ -78,4 +78,4 @@ def test_readded_entry_is_reactivated(db):
     sync_watchlist(db, lb, "u", NOW, bare_film(db))
     e = db.get(WatchlistEntry, "a")
     assert e.removed_at is None and e.tmdb_id == 11
-    assert db.execute(select(WatchlistEntry)).scalars().all().__len__() == 1
+    assert len(db.execute(select(WatchlistEntry)).scalars().all()) == 1

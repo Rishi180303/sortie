@@ -74,7 +74,8 @@ def _lines_for(db: Session, tmdb_id: int, today: date) -> dict[int, TheatreLine]
 def _entry(
     db: Session, tmdb_id: int, kinds: list[str], today: date
 ) -> tuple[FilmEntry | None, bool]:
-    film, state = db.get(Film, tmdb_id), db.get(FilmState, tmdb_id)
+    film = db.get(Film, tmdb_id)
+    state = db.get(FilmState, tmdb_id)
     if film is None or state is None or state.earliest_theatre_id is None:
         return None, False
     lines = _lines_for(db, tmdb_id, today)

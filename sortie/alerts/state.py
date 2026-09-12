@@ -61,11 +61,10 @@ def compute_film_states(db: Session, today: date, now: datetime, reappear_days: 
                 state.alerted_earliest_date = None
 
         # earliest anywhere: first row in ordered list
-        if rows:
-            state.earliest_date_anywhere = rows[0][0]
-            state.earliest_theatre_id = rows[0][1].id
+        state.earliest_date_anywhere = rows[0][0]
+        state.earliest_theatre_id = rows[0][1].id
 
-        # earliest at favourite: first row where is_favourite=True
+        # earliest at favourite: first row at a theatre marked as a favourite
         earliest_fav = None
         for show_date, theatre in rows:
             if theatre.is_favourite:

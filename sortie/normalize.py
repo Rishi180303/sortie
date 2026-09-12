@@ -3,7 +3,7 @@ import unicodedata
 
 _YEAR_PAREN = re.compile(r"\s*\(((?:19|20)\d{2})\)\s*$")
 
-# 40th anniversary, 45th anniv., anniversary edition
+# 40th anniversary, 45th anniv., 50th anniversary edition
 _ANNIVERSARY = re.compile(
     r"\s*\b\d{1,3}(?:st|nd|rd|th)\s+anniv(?:ersary)?\.?(?:\s+(?:edition|screening|event))?\b",
     re.IGNORECASE,

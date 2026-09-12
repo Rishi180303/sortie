@@ -54,11 +54,9 @@ def resolve_pending(
             except FetchError as e:
                 res.errors.append(f"{sf.raw_title}: {e}")
                 continue
-            sf.runtime_minutes, sf.director, sf.cast_top = (
-                d.runtime_minutes,
-                d.director,
-                list(d.cast_top),
-            )
+            sf.runtime_minutes = d.runtime_minutes
+            sf.director = d.director
+            sf.cast_top = list(d.cast_top)
             sf.enriched_at = now
             db.flush()
 
@@ -115,7 +113,9 @@ def resolve_pending(
             if q is None:
                 db.add(MatchQueue(source_film_id=sf.id, candidates=cands, created_at=now))
             else:
-                q.candidates, q.created_at, q.resolved_at = cands, now, None
+                q.candidates = cands
+                q.created_at = now
+                q.resolved_at = None
             res.queued += 1
         db.flush()
     return res

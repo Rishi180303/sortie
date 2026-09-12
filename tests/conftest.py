@@ -16,8 +16,7 @@ TEST_URL = os.environ.get(
 
 
 class RoutedTransport:
-    """Routes requests to canned responses by URL substring, in registration order."""
-
+    # routes requests to canned responses by url substring, in registration order
     def __init__(self):
         self.routes: list[tuple[str, int, str]] = []
         self.calls: list[tuple[str, str, str | None]] = []
