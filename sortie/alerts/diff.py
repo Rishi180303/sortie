@@ -26,7 +26,7 @@ def transitions(state: FilmState, today: date, approaching_days: int) -> list[Al
     if state.alerted_new_at is None:
         out.append(Alert("new_anywhere", state.tmdb_id))
 
-    # first sighting at favourite theatre (only if we've alerted on new_anywhere)
+    # first sighting at favourite theatre
     if state.earliest_date_at_fav is not None and state.alerted_fav_at is None:
         out.append(Alert("new_at_favourite", state.tmdb_id))
 
