@@ -91,16 +91,14 @@ def _entry(
             others.append(ln)
 
     def sort_key(ln: TheatreLine) -> tuple:
-        return (not ln.is_favourite, ln.date, ln.distance_miles if ln.distance_miles is not None else 1e9)
+        dist = ln.distance_miles if ln.distance_miles is not None else 1e9
+        return (not ln.is_favourite, ln.date, dist)
 
     others.sort(key=sort_key)
 
     year = film.us_theatrical_date.year if film.us_theatrical_date else None
     return (
-        FilmEntry(
-            tmdb_id, film.title, year, tuple(sorted(kinds)), earliest, at_fav,
-            tuple(others)
-        ),
+        FilmEntry(tmdb_id, film.title, year, tuple(sorted(kinds)), earliest, at_fav, tuple(others)),
         state.is_watchlist,
     )
 
@@ -183,9 +181,7 @@ def _render_entry(e: FilmEntry) -> list[str]:
     )
 
     if e.at_fav is not None:
-        out.append(
-            f"  Your theatres       {_fmt_date(e.at_fav.date)}  ·  {e.at_fav.name}"
-        )
+        out.append(f"  Your theatres       {_fmt_date(e.at_fav.date)}  ·  {e.at_fav.name}")
         gap = (e.at_fav.date - e.earliest.date).days
         if gap > 0:
             out.append(f"  ↳ {gap} day{'s' if gap != 1 else ''} earlier if you drive")
@@ -220,10 +216,9 @@ def render_text(d: Digest) -> str:
                 lines += _render_entry(e) + [""]
     if d.needs_input:
         n = d.needs_input
-        lines += [
-            f"{n} film{'s' if n != 1 else ''} need{'s' if n == 1 else ''} your input in the match queue.",
-            "",
-        ]
+        film_s = "s" if n != 1 else ""
+        need_s = "s" if n == 1 else ""
+        lines += [f"{n} film{film_s} need{need_s} your input in the match queue.", ""]
     if d.health:
         lines += ["—", *(f"  {h}" for h in d.health)]
     return "\n".join(lines).rstrip() + "\n"
