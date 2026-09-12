@@ -1,18 +1,17 @@
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from sortie.config import load_secrets
 from sortie.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-url = os.environ.get("DATABASE_URL")
-if url:
-    config.set_main_option("sqlalchemy.url", url)
+# load_secrets reads DATABASE_URL from the environment or .env
+config.set_main_option("sqlalchemy.url", load_secrets().database_url)
 
 target_metadata = Base.metadata
 
