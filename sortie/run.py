@@ -110,7 +110,7 @@ def run_daily(
     theatre_refresh_days: int = 30,
 ) -> RunReport:
     now = now or datetime.now(UTC)
-    today = today or now.date()
+    today = today or now.astimezone().date()
     report = RunReport(today=today)
 
     with session_factory() as db:
