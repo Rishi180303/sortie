@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 
 from sortie.alerts.state import compute_film_states
-from sortie.models import Film, FilmState, Showing, SourceFilm, Theatre, WatchlistEntry
+from sortie.models import Film, FilmAlias, FilmState, Showing, SourceFilm, Theatre, WatchlistEntry
 
 NOW = datetime(2026, 9, 8, tzinfo=UTC)
 TODAY = date(2026, 9, 8)
@@ -131,3 +131,31 @@ def test_film_without_future_showings_keeps_state(db):
     compute_film_states(db, TODAY + timedelta(days=5), NOW)
     s = db.get(FilmState, 1)
     assert s is not None and s.last_seen_showing == TODAY
+
+
+def test_rerelease_needs_gap_and_a_second_signal(db):
+    t = theatre(db, "t")
+    sf = film(db, 1)
+    db.get(Film, 1).us_theatrical_date = date(1986, 8, 8)
+    show(db, sf, t, date(2026, 9, 17))
+    compute_film_states(db, TODAY, NOW)
+    assert db.get(FilmState, 1).is_rerelease is False
+    # the listing calls it an anniversary screening
+    sf.raw_title = "F1 40th Anniversary (2026)"
+    db.flush()
+    compute_film_states(db, TODAY, NOW)
+    assert db.get(FilmState, 1).is_rerelease is True
+
+
+def test_rerelease_via_fathom_listing(db):
+    t = theatre(db, "t")
+    sf = film(db, 1)
+    db.get(Film, 1).us_theatrical_date = date(2004, 2, 25)
+    db.add(FilmAlias(tmdb_id=1, alias_normalized="f1", origin="primary"))
+    show(db, sf, t, date(2026, 9, 12))
+    compute_film_states(db, TODAY, NOW, fathom_titles={"f1", "spirited away"})
+    assert db.get(FilmState, 1).is_rerelease is True
+    compute_film_states(db, TODAY, NOW, fathom_titles={"spirited away"})
+    assert db.get(FilmState, 1).is_rerelease is False
+    compute_film_states(db, TODAY, NOW, fathom_titles={"f1"}, gap_years=30)
+    assert db.get(FilmState, 1).is_rerelease is False
