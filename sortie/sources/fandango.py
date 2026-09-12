@@ -15,24 +15,21 @@ BASE = "https://www.fandango.com"
 # every napi call, by the source and by scripts/fandango_discover.py.
 NAPI_HEADERS = {"Accept": "application/json", "Referer": f"{BASE}/"}
 
-# fandango's napi is undocumented, so field names are guessed from limited
-# live observation, then reconciled against real responses. first match
-# wins. extend after running scripts/fandango_discover.py against a real
-# response.
+# fandango's napi is undocumented; field names come from live responses and tests; first match wins.
 _KEYS = {
-    "theatre_list": ("theaters", "Theaters", "results", "items"),
-    "theatre_id": ("id", "theaterId", "theatreId", "tid"),
-    "chain": ("chainName", "chain", "brand"),
+    "theatre_list": ("theaters",),
+    "theatre_id": ("id", "theaterId"),
+    "chain": ("chainName", "chain"),
     "city": ("city",),
-    "distance": ("distance", "distanceMiles", "distance_miles"),
-    "lat": ("latitude", "lat"),
-    "lng": ("longitude", "lng", "lon"),
-    "dates_list": ("showtimeDates", "dates", "calendar", "availableDates", "showDates"),
-    "movie_list": ("movies", "Movies", "films"),
-    "movie_id": ("id", "movieId", "filmId"),
-    "movie_title": ("title", "name", "movieName"),
-    "movie_url": ("mopURI", "movieUrl", "url", "href", "slug"),
-    "showtime_value": ("ticketingDate", "date", "showtime", "time", "startTime", "dateTime"),
+    "distance": ("distance", "distanceMiles"),
+    "lat": ("latitude",),
+    "lng": ("longitude",),
+    "dates_list": ("showtimeDates", "dates"),
+    "movie_list": ("movies",),
+    "movie_id": ("id", "movieId"),
+    "movie_title": ("title", "name"),
+    "movie_url": ("mopURI", "url"),
+    "showtime_value": ("ticketingDate", "date", "time"),
 }
 
 _ISO_DUR = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:\d+S)?$")
