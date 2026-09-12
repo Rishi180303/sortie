@@ -89,5 +89,5 @@ def sweep_showtimes(db: Session, source: ShowtimeSource, now: datetime, today: d
                 show.show_times = list(info.show_times)
                 show.last_seen = now
             res.showings_upserted += 1
-        db.flush()
+        db.commit()
     return res
