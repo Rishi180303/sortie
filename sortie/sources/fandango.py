@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -11,9 +11,14 @@ from sortie.sources.base import FilmDetails, ShowingInfo, TheatreInfo
 
 BASE = "https://www.fandango.com"
 
+# napi returns 403 without a referer from a same-site page load. sent on
+# every napi call, by the source and by scripts/fandango_discover.py.
+NAPI_HEADERS = {"Accept": "application/json", "Referer": f"{BASE}/"}
+
 # fandango's napi is undocumented, so field names are guessed from limited
-# live observation. first match wins. extend after running
-# scripts/fandango_discover.py against a real response.
+# live observation, then reconciled against real responses. first match
+# wins. extend after running scripts/fandango_discover.py against a real
+# response.
 _KEYS = {
     "theatre_list": ("theaters", "Theaters", "results", "items"),
     "theatre_id": ("id", "theaterId", "theatreId", "tid"),
@@ -22,12 +27,12 @@ _KEYS = {
     "distance": ("distance", "distanceMiles", "distance_miles"),
     "lat": ("latitude", "lat"),
     "lng": ("longitude", "lng", "lon"),
-    "dates_list": ("dates", "calendar", "availableDates", "showDates"),
+    "dates_list": ("showtimeDates", "dates", "calendar", "availableDates", "showDates"),
     "movie_list": ("movies", "Movies", "films"),
     "movie_id": ("id", "movieId", "filmId"),
     "movie_title": ("title", "name", "movieName"),
-    "movie_url": ("movieUrl", "url", "href", "slug"),
-    "showtime_value": ("date", "showtime", "time", "startTime", "dateTime"),
+    "movie_url": ("mopURI", "movieUrl", "url", "href", "slug"),
+    "showtime_value": ("ticketingDate", "date", "showtime", "time", "startTime", "dateTime"),
 }
 
 _ISO_DUR = re.compile(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:\d+S)?$")
@@ -140,16 +145,16 @@ def _find_showtimes(node) -> list[dict]:
 def _hhmm(raw) -> str | None:
     if not isinstance(raw, str):
         return None
+    # ticketingDate looks like "2026-09-13+21:45": date and 24h time joined by "+"
+    if "+" in raw:
+        return raw.split("+")[1]
     m = _TIME_12H.match(raw)
     if m:
         hour = int(m.group(1)) % 12
         if m.group(3).upper() == "PM":
             hour += 12
         return f"{hour:02d}:{m.group(2)}"
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%H:%M")
-    except ValueError:
-        return None
+    return None
 
 
 def parse_showtimes(payload, show_date: date) -> list[ShowingInfo]:
@@ -219,8 +224,12 @@ def parse_jsonld_details(html: str) -> FilmDetails:
         for item in items:
             if isinstance(item, dict) and item.get("@type") == "Movie":
                 directors = _names(item.get("director"))
+                duration = item.get("duration")
+                # fandango's movie pages give duration as a plain int (minutes),
+                # not the schema.org "PT1H45M" iso form
+                runtime = duration if isinstance(duration, int) else iso_duration_minutes(duration)
                 return FilmDetails(
-                    runtime_minutes=iso_duration_minutes(item.get("duration")),
+                    runtime_minutes=runtime,
                     director=directors[0] if directors else None,
                     cast_top=_names(item.get("actor"))[:5],
                 )
@@ -244,13 +253,12 @@ class FandangoSource:
     def __init__(self, http: HttpClient, max_dates: int = 120):
         self.http = http
         self.max_dates = max_dates
-        self._json_headers = {"Accept": "application/json"}
 
     def nearby_theatres(self, postal_code: str, radius_miles: int) -> list[TheatreInfo]:
         r = self.http.get(
             f"{BASE}/napi/nearbyTheaters",
             target=f"nearby-{postal_code}",
-            headers=self._json_headers,
+            headers=NAPI_HEADERS,
             params={"zipCode": postal_code, "limit": "100"},
         )
         theatres = parse_nearby(json.loads(r.text))
@@ -265,7 +273,7 @@ class FandangoSource:
         r = self.http.get(
             f"{BASE}/napi/theaterCalendar/{source_theatre_id}",
             target=f"calendar-{source_theatre_id}",
-            headers=self._json_headers,
+            headers=NAPI_HEADERS,
         )
         dates = parse_calendar(json.loads(r.text))[: self.max_dates]
         out = []
@@ -273,7 +281,7 @@ class FandangoSource:
             r = self.http.get(
                 f"{BASE}/napi/theaterMovieShowtimes/{source_theatre_id}",
                 target=f"showtimes-{source_theatre_id}-{d.isoformat()}",
-                headers=self._json_headers,
+                headers=NAPI_HEADERS,
                 params={"date": d.isoformat()},
             )
             out.extend(parse_showtimes(json.loads(r.text), d))

@@ -5,9 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from sortie.sources.fandango import BASE, make_fandango_http, parse_calendar
-
-_JSON_HEADERS = {"Accept": "application/json"}
+from sortie.sources.fandango import BASE, NAPI_HEADERS, make_fandango_http, parse_calendar
 
 
 def shape(x, depth=0, max_depth=4):
@@ -31,7 +29,7 @@ def main():
     r = http.get(
         f"{BASE}/napi/nearbyTheaters",
         target="nearby",
-        headers=_JSON_HEADERS,
+        headers=NAPI_HEADERS,
         params={"zipCode": zip_code, "limit": "100"},
     )
     nearby = json.loads(r.text)
@@ -45,7 +43,7 @@ def main():
     r = http.get(
         f"{BASE}/napi/theaterCalendar/{theatre}",
         target=f"calendar-{theatre}",
-        headers=_JSON_HEADERS,
+        headers=NAPI_HEADERS,
     )
     cal = json.loads(r.text)
     shape(cal)
@@ -56,7 +54,7 @@ def main():
     r = http.get(
         f"{BASE}/napi/theaterMovieShowtimes/{theatre}",
         target=f"showtimes-{theatre}-{d}",
-        headers=_JSON_HEADERS,
+        headers=NAPI_HEADERS,
         params={"date": d} if d else None,
     )
     shape(json.loads(r.text))

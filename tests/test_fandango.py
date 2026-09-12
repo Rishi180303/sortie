@@ -32,7 +32,7 @@ NEARBY = {
     ]
 }
 
-CALENDAR = {"dates": ["2026-09-08", "2026-09-09", {"date": "2026-09-10"}]}
+CALENDAR = {"showtimeDates": ["2026-09-08", "2026-09-09", {"date": "2026-09-10"}]}
 
 SHOWTIMES = {
     "viewModel": {
@@ -40,14 +40,20 @@ SHOWTIMES = {
             {
                 "id": 246473,
                 "title": "Practical Magic 2 (2026)",
-                "movieUrl": "/practical-magic-2-2026-246473/movie-overview",
+                "mopURI": "/practical-magic-2-2026-246473/movie-overview",
                 "variants": [
                     {
                         "amenityGroups": [
                             {
                                 "showtimes": [
-                                    {"date": "2026-09-08T16:30:00"},
-                                    {"date": "2026-09-08T19:45:00"},
+                                    {
+                                        "date": "2026-09-08T16:30:00",
+                                        "ticketingDate": "2026-09-08+16:30",
+                                    },
+                                    {
+                                        "date": "2026-09-08T19:45:00",
+                                        "ticketingDate": "2026-09-08+19:45",
+                                    },
                                 ]
                             }
                         ]
