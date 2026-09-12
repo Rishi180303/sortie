@@ -128,6 +128,8 @@ def run_daily(
                 f"watchlist: {w.total_active} active, +{w.added} -{w.removed}, "
                 f"{w.unresolved} unresolved"
             )
+            for err in w.errors:
+                report.health.append(f"watchlist: {err}")
         except Exception as e:  # one source failing must not stop the run
             report.failures.append(f"watchlist sync: {e}")
         db.commit()

@@ -1,11 +1,12 @@
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from sortie.clients.letterboxd import LetterboxdClient
+from sortie.http import FetchError
 from sortie.models import WatchlistEntry
 
 
@@ -16,6 +17,7 @@ class WatchlistSyncResult:
     resolved: int
     unresolved: int
     total_active: int
+    errors: list[str] = field(default_factory=list)
 
 
 def sync_watchlist(
@@ -76,10 +78,16 @@ def sync_watchlist(
         .all()
     )
 
+    errors: list[str] = []
     for e in active:
         if e.tmdb_id is not None:
             continue
-        tid = lb.tmdb_id_for(e.letterboxd_slug)
+        try:
+            tid = lb.tmdb_id_for(e.letterboxd_slug)
+        except FetchError as err:
+            unresolved += 1
+            errors.append(f"{e.letterboxd_slug}: {err}")
+            continue
         if tid is None:
             unresolved += 1
             continue
@@ -88,4 +96,4 @@ def sync_watchlist(
         resolved += 1
 
     db.flush()
-    return WatchlistSyncResult(added, removed, resolved, unresolved, len(active))
+    return WatchlistSyncResult(added, removed, resolved, unresolved, len(active), errors)

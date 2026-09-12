@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from sortie.clients.letterboxd import WatchlistItem
+from sortie.http import FetchError
 from sortie.models import Film, WatchlistEntry
 from sortie.sync.watchlist import sync_watchlist
 
@@ -50,6 +51,23 @@ def test_second_sync_soft_deletes_and_retries_unresolved(db):
     assert db.get(WatchlistEntry, "a").removed_at == NOW
     assert db.get(WatchlistEntry, "b").tmdb_id == 22
     assert lb2.id_calls == ["b", "c"]  # "a" is removed; already-resolved slugs are not re-fetched
+
+
+def test_entry_that_fails_to_resolve_is_isolated(db):
+    class FlakyLb(FakeLb):
+        def tmdb_id_for(self, slug):
+            self.id_calls.append(slug)
+            if slug == "bad":
+                raise FetchError("https://x", 404, "not found")
+            return self.ids.get(slug)
+
+    lb = FlakyLb(
+        [WatchlistItem("bad", "Bad", None), WatchlistItem("good", "Good", 2026)], {"good": 11}
+    )
+    r = sync_watchlist(db, lb, "u", NOW, bare_film(db))
+    assert r.resolved == 1 and r.unresolved == 1
+    assert len(r.errors) == 1 and "bad" in r.errors[0]
+    assert db.get(WatchlistEntry, "good").tmdb_id == 11
 
 
 def test_readded_entry_is_reactivated(db):
