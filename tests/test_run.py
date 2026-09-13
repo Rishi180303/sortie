@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
+from sortie.clients.fathom import FathomClient
 from sortie.clients.letterboxd import WatchlistItem
 from sortie.clients.tmdb import TmdbCandidate, TmdbFilm
 from sortie.config import (
@@ -17,7 +18,7 @@ from sortie.config import (
 )
 from sortie.http import FetchError
 from sortie.models import FetchLog, FilmState, Theatre
-from sortie.run import Runtime, run_daily
+from sortie.run import Runtime, build_runtime, run_daily
 from sortie.sources.base import FilmDetails, ShowingInfo, TheatreInfo
 from tests.conftest import FakeSource
 
@@ -88,6 +89,29 @@ def runtime(source, mailer):
 
 def factory(engine):
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def test_build_runtime_wires_the_fathom_client():
+    cfg = Config(
+        location=LocationCfg(postal_code="10001"),
+        letterboxd=LetterboxdCfg(username="example-user"),
+        sources=SourcesCfg(amc=False, fandango=False, fathom=True),
+    )
+    secrets = Secrets(database_url="unused", tmdb_api_key="k")
+    rt = build_runtime(cfg, secrets)
+    assert isinstance(rt.fathom, FathomClient)
+    assert rt.fathom.http in rt.http_clients
+    assert rt.fathom.http.source == "fathom"
+    assert len(rt.http_clients) == 4
+
+    cfg_off = Config(
+        location=LocationCfg(postal_code="10001"),
+        letterboxd=LetterboxdCfg(username="example-user"),
+        sources=SourcesCfg(amc=False, fandango=False, fathom=False),
+    )
+    rt_off = build_runtime(cfg_off, secrets)
+    assert rt_off.fathom is None
+    assert len(rt_off.http_clients) == 3
 
 
 def test_first_run_emails_watchlist_hit(engine, db):
