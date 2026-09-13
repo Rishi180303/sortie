@@ -16,7 +16,7 @@ from sortie.clients.tmdb import TmdbClient
 from sortie.config import Config, Secrets
 from sortie.http import HttpClient
 from sortie.matching.resolve import ResolveResult, resolve_pending
-from sortie.models import FetchLog, FilmState, MatchQueue
+from sortie.models import FetchLog, Film, FilmState, MatchQueue
 from sortie.sources.base import ShowtimeSource
 from sortie.sync.films import hydrate_film
 from sortie.sync.showtimes import SweepResult, sweep_showtimes
@@ -206,6 +206,41 @@ def run_daily(
         report.states = compute_film_states(
             db, today, now, fathom_titles=fathom_titles, gap_years=cfg.alerts.rerelease_gap_years
         )
+
+        # old films that clear the age gap but never got a second signal alert nobody,
+        # so call them out in the health footer or they vanish without a trace
+        flagged = (
+            db.execute(
+                select(func.count())
+                .select_from(FilmState)
+                .where(FilmState.last_computed == now, FilmState.is_rerelease.is_(True))
+            ).scalar()
+            or 0
+        )
+        cutoff = today - timedelta(days=cfg.alerts.rerelease_gap_years * 365)
+        unconfirmed = list(
+            db.execute(
+                select(Film.title)
+                .join(FilmState, FilmState.tmdb_id == Film.tmdb_id)
+                .where(
+                    FilmState.last_computed == now,
+                    FilmState.is_watchlist.is_(False),
+                    FilmState.is_rerelease.is_(False),
+                    Film.us_theatrical_date.is_not(None),
+                    Film.us_theatrical_date <= cutoff,
+                )
+                .order_by(Film.title)
+            ).scalars()
+        )
+        if unconfirmed:
+            titles = ", ".join(unconfirmed)
+            report.health.append(
+                f"rereleases: {flagged} flagged, {len(unconfirmed)} old films without a "
+                f"second signal: {titles}"
+            )
+        else:
+            report.health.append(f"rereleases: {flagged} flagged")
+
         alerts: dict[int, list[Alert]] = {}
         for state in db.execute(select(FilmState).where(FilmState.last_computed == now)).scalars():
             ts = transitions(state, today, cfg.alerts.approaching_days)

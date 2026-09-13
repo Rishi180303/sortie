@@ -226,6 +226,26 @@ def test_fathom_listing_makes_an_old_film_a_rerelease_alert(engine, db):
     assert "RE-RELEASES NEAR YOU" in m.sent[0][1] and "HEAT" in m.sent[0][1]
     with factory(engine)() as s:
         assert s.get(FilmState, 2).is_rerelease is True
+    assert "rereleases: 1 flagged" in report.health
+
+
+def test_old_film_without_a_second_signal_is_reported_not_flagged(engine, db):
+    src = FakeSource(
+        theatres=[TheatreInfo("far", "Landmark Midtown", distance_miles=18.0)],
+        showings={"far": [ShowingInfo("902", "Heat (2026)", 2026, date(2026, 9, 20), ["19:00"])]},
+        details={"902": FilmDetails(170, "Michael Mann", ["Al Pacino", "Robert De Niro"])},
+    )
+    m = Mailer()
+    rt = Runtime(
+        sources=[src],
+        tmdb=TwoFilmTmdb(),
+        lb=FakeLb(),
+        mailer=m,
+        fathom=FakeFathom(),
+    )
+    report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+    assert "rereleases: 0 flagged, 1 old films without a second signal: Heat" in report.health
+    assert report.alerts == 0
 
 
 def test_fathom_failure_is_reported_and_emailed(engine, db):
