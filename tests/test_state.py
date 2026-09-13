@@ -151,11 +151,11 @@ def test_rerelease_via_fathom_listing(db):
     t = theatre(db, "t")
     sf = film(db, 1)
     db.get(Film, 1).us_theatrical_date = date(2004, 2, 25)
-    db.add(FilmAlias(tmdb_id=1, alias_normalized="f1", origin="primary"))
+    db.add(FilmAlias(tmdb_id=1, alias_normalized="first film", origin="primary"))
     show(db, sf, t, date(2026, 9, 12))
-    compute_film_states(db, TODAY, NOW, fathom_titles={"f1", "spirited away"})
+    compute_film_states(db, TODAY, NOW, fathom_titles={"first film", "spirited away"})
     assert db.get(FilmState, 1).is_rerelease is True
     compute_film_states(db, TODAY, NOW, fathom_titles={"spirited away"})
     assert db.get(FilmState, 1).is_rerelease is False
-    compute_film_states(db, TODAY, NOW, fathom_titles={"f1"}, gap_years=30)
+    compute_film_states(db, TODAY, NOW, fathom_titles={"first film"}, gap_years=30)
     assert db.get(FilmState, 1).is_rerelease is False
