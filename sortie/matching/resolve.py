@@ -67,7 +67,12 @@ def resolve_pending(
 
         scored = []
         for tc in tmdb.search(title_n, limit=max_candidates):
-            film = hydrate_film(db, tmdb, tc.tmdb_id, now)
+            # search can list an id whose movie page 404s, skip it and score the rest
+            try:
+                film = hydrate_film(db, tmdb, tc.tmdb_id, now)
+            except FetchError as e:
+                res.errors.append(f"{sf.raw_title}: {e}")
+                continue
             cand = Candidate(
                 tmdb_id=film.tmdb_id,
                 title=film.title,

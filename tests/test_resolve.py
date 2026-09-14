@@ -130,3 +130,27 @@ def test_enrichment_not_repeated_on_second_run(db):
     db.flush()
     resolve_pending(db, src, tmdb, CFG, NOW)
     assert src.detail_calls == ["900"]
+
+
+def test_candidate_whose_tmdb_film_is_missing_is_skipped(db):
+    # tmdb search can list an id whose movie page 404s, the other candidates still count
+    class Flaky(FakeTmdb):
+        def film(self, tmdb_id):
+            if tmdb_id == 3:
+                raise FetchError("https://x", 404, "not found")
+            return self.films[tmdb_id]
+
+    sf = add_sf(db)
+    src = FakeSource(details={"900": FilmDetails(84, "Nelson Shin", ["A"])})
+    tmdb = Flaky(
+        [
+            TmdbCandidate(3, "The Transformers: The Movie", "", 1986, 60.0),
+            TmdbCandidate(1, "The Transformers: The Movie", "", 1986, 50.0),
+        ],
+        {1: tf(1, "The Transformers: The Movie", "Nelson Shin", 84)},
+    )
+    r = resolve_pending(db, src, tmdb, CFG, NOW)
+    assert (r.resolved, r.queued) == (1, 0)
+    assert len(r.errors) == 1 and "status=404" in r.errors[0]
+    db.refresh(sf)
+    assert sf.tmdb_id == 1 and sf.resolution == "auto"
