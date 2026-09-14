@@ -1,7 +1,16 @@
 from datetime import UTC, date, datetime
 
 from sortie.alerts.diff import Alert
-from sortie.alerts.digest import build_digest, is_empty, render_html, render_text, subject
+from sortie.alerts.digest import (
+    FilmEntry,
+    TheatreLine,
+    _render_entry,
+    build_digest,
+    is_empty,
+    render_html,
+    render_text,
+    subject,
+)
 from sortie.models import Film, FilmState, Showing, SourceFilm, Theatre
 
 NOW = datetime(2026, 9, 8, tzinfo=UTC)
@@ -148,3 +157,10 @@ def test_subject_and_emptiness(db):
     f = build_digest(db, {}, TODAY, 0, [], ["Landmark Midtown: HTTP 403"])
     assert not is_empty(f) and subject(f) == "sortie: 1 fetch failure"
     assert "FAILURES" in render_text(f) and "HTTP 403" in render_text(f)
+
+
+def test_long_theatre_name_keeps_a_gap_before_the_distance():
+    # a name wider than the column must not run into the miles
+    where = TheatreLine("Harkins Tempe Marketplace 16", 2.0, date(2026, 10, 20), True)
+    e = FilmEntry(1, "The Lost Boys", 1987, ("new_anywhere",), where, None, ())
+    assert "Harkins Tempe Marketplace 16  2 mi" in _render_entry(e)[1]

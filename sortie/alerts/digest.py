@@ -178,7 +178,7 @@ def _render_entry(e: FilmEntry) -> list[str]:
 
     out.append(
         f"  Earliest anywhere   {_fmt_date(e.earliest.date)}  ·  "
-        f"{e.earliest.name:<24}{_mi(e.earliest.distance_miles)}"
+        f"{e.earliest.name:<24}  {_mi(e.earliest.distance_miles)}"
     )
 
     if e.at_fav is not None:
