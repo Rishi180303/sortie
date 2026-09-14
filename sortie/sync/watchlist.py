@@ -83,14 +83,15 @@ def sync_watchlist(
             continue
         try:
             tid = lb.tmdb_id_for(e.letterboxd_slug)
+            if tid is None:
+                unresolved += 1
+                continue
+            # the id can point at a tv show, whose movie page 404s
+            ensure_film(tid)
         except FetchError as err:
             unresolved += 1
             errors.append(f"{e.letterboxd_slug}: {err}")
             continue
-        if tid is None:
-            unresolved += 1
-            continue
-        ensure_film(tid)
         e.tmdb_id = tid
         resolved += 1
 

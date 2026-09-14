@@ -79,3 +79,21 @@ def test_readded_entry_is_reactivated(db):
     e = db.get(WatchlistEntry, "a")
     assert e.removed_at is None and e.tmdb_id == 11
     assert len(db.execute(select(WatchlistEntry)).scalars().all()) == 1
+
+
+def test_entry_whose_tmdb_film_is_missing_is_isolated(db):
+    # letterboxd can point at a tmdb id that is a tv show, so the movie endpoint 404s
+    def ensure(tmdb_id):
+        if tmdb_id == 5:
+            raise FetchError("https://x", 404, "not found")
+        bare_film(db)(tmdb_id)
+
+    lb = FakeLb(
+        [WatchlistItem("cartoon", "Cartoon", 2014), WatchlistItem("good", "Good", 2026)],
+        {"cartoon": 5, "good": 11},
+    )
+    r = sync_watchlist(db, lb, "u", NOW, ensure)
+    assert r.resolved == 1 and r.unresolved == 1
+    assert len(r.errors) == 1 and "cartoon" in r.errors[0]
+    assert db.get(WatchlistEntry, "cartoon").tmdb_id is None
+    assert db.get(WatchlistEntry, "good").tmdb_id == 11
