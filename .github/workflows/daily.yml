@@ -1,0 +1,42 @@
+name: daily
+on:
+  schedule:
+    - cron: "30 11 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - run: uv sync
+      - name: write config
+        run: printf '%s' "$SORTIE_CONFIG" > config.toml
+        env:
+          SORTIE_CONFIG: ${{ secrets.SORTIE_CONFIG }}
+      - name: migrate
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      - name: run the collector
+        run: uv run sortie run
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+      - name: keep the archive when the run failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ github.run_id }}
+          path: raw/
+          retention-days: 7
