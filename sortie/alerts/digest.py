@@ -1,5 +1,6 @@
 import html as _html
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -72,7 +73,7 @@ def _lines_for(db: Session, tmdb_id: int, today: date) -> dict[int, TheatreLine]
 
 
 def _entry(
-    db: Session, tmdb_id: int, kinds: list[str], today: date
+    db: Session, tmdb_id: int, kinds: Sequence[str], today: date
 ) -> tuple[FilmEntry | None, bool]:
     film = db.get(Film, tmdb_id)
     state = db.get(FilmState, tmdb_id)

@@ -19,7 +19,7 @@ dependencies = [
 sortie = "sortie.__main__:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.4", "httpx>=0.27"]
+dev = ["pytest>=8", "ruff>=0.4", "httpx>=0.27", "mypy>=1.11"]
 
 [build-system]
 requires = ["hatchling"]
@@ -38,3 +38,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

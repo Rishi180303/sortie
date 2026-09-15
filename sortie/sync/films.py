@@ -28,7 +28,7 @@ def hydrate_film(
     db: Session, tmdb: TmdbClient, tmdb_id: int, now: datetime, max_age_days: int = 30
 ) -> Film:
     film = db.get(Film, tmdb_id)
-    if _is_fresh(film, now, max_age_days):
+    if film is not None and _is_fresh(film, now, max_age_days):
         return film
     tf = tmdb.film(tmdb_id)
     if film is None:

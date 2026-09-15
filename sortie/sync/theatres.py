@@ -10,10 +10,10 @@ def refresh_theatres(
 ) -> int:
     infos = source.nearby_theatres(postal_code, radius_miles)
     existing = {}
-    for t in db.execute(select(Theatre).where(Theatre.source == source.name)).scalars():
-        existing[t.source_theatre_id] = t
+    for row in db.execute(select(Theatre).where(Theatre.source == source.name)).scalars():
+        existing[row.source_theatre_id] = row
     for info in infos:
-        t = existing.get(info.source_theatre_id)
+        t: Theatre | None = existing.get(info.source_theatre_id)
         if t is None:
             t = Theatre(
                 source=source.name,

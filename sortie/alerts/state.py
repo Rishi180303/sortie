@@ -93,6 +93,7 @@ def compute_film_states(
 
         state.is_watchlist = tmdb_id in watchlisted
         film = db.get(Film, tmdb_id)
+        assert film is not None  # source_film.tmdb_id is a foreign key to film
         state.is_rerelease = is_rerelease(
             film.us_theatrical_date,
             state.earliest_date_anywhere,

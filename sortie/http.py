@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 Transport = Callable[
     [str, str, dict[str, str] | None, dict[str, str] | None, str | None], tuple[int, str]
@@ -45,7 +46,7 @@ def _retryable(status: int) -> bool:
 def curl_cffi_transport(impersonate: str = "chrome") -> Transport:
     from curl_cffi import requests
 
-    session = requests.Session(impersonate=impersonate)
+    session: Any = requests.Session(impersonate=impersonate)
 
     def transport(method, url, headers, params, json_body):
         if method == "POST":
@@ -84,6 +85,7 @@ class HttpClient:
         self._last_at = self.clock()
 
     def _raw(self, method, url, headers, params, body) -> tuple[int, str]:
+        assert self.transport is not None  # __post_init__ always sets it
         self._throttle()
         return self.transport(method, url, headers, params, body)
 

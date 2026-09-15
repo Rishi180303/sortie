@@ -10,6 +10,12 @@ BASE = "https://letterboxd.com"
 _TMDB_HREF = re.compile(r"themoviedb\.org/movie/(\d+)")
 
 
+def _attr(tag, name: str) -> str:
+    # beautifulsoup types an attribute as possibly a list, these are all single
+    v = tag.get(name, "")
+    return v if isinstance(v, str) else " ".join(v)
+
+
 @dataclass(frozen=True)
 class WatchlistItem:
     slug: str
@@ -24,13 +30,13 @@ def parse_watchlist_page(html: str) -> list[WatchlistItem]:
 
     # find all elements with either modern or legacy slug attributes
     for el in soup.select("[data-item-slug], [data-film-slug]"):
-        slug = el.get("data-item-slug") or el.get("data-film-slug")
+        slug = _attr(el, "data-item-slug") or _attr(el, "data-film-slug")
         if not slug or slug in seen:
             continue
         seen.add(slug)
 
         # get the name from modern or legacy name attributes
-        name = el.get("data-item-name") or el.get("data-film-name")
+        name = _attr(el, "data-item-name") or _attr(el, "data-film-name")
         if not name:
             name = el.get_text(strip=True)
         if not name:
@@ -48,7 +54,7 @@ def parse_film_tmdb_id(html: str) -> int | None:
 
     # try to get tmdb id from data-tmdb-id on body tag
     if soup.body is not None:
-        v = soup.body.get("data-tmdb-id")
+        v = _attr(soup.body, "data-tmdb-id")
         if v and str(v).isdigit():
             return int(v)
 
