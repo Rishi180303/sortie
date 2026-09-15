@@ -101,6 +101,20 @@ uv run alembic upgrade head
 uv run sortie run
 ```
 
+sortie has a few other subcommands, run locally the same way:
+
+```bash
+uv run sortie refresh-theatres   # fetch theatres near your zip code
+uv run sortie schedule           # run once a day at [alerts].send_hour, the old local mode
+uv run sortie serve              # start a small api with a /health endpoint
+```
+
+run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. there is no page yet for picking favourite theatres, so mark one directly in postgres:
+
+```sql
+update theatre set is_favourite = true where name = 'AMC Metro 14';
+```
+
 ## a note on data sources
 
 The AMC catalog API is free for noncommercial use on request and is the preferred source for AMC theatres, but the AMC adapter has not been built yet. Fandango covers every chain but has no public API and its terms prohibit automated access, so it is off by default and you turn it on yourself with `fandango = true` in `config.toml`. Fandango is the only showtime source that exists right now, so with the default `fandango = false` sortie has nothing to check and will never find a showtime. sortie requests politely, one request a second and once a day, and keeps a copy of every response so a broken parser can be fixed offline.
