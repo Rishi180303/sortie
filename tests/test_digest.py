@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 from sortie.alerts.diff import Alert
 from sortie.alerts.digest import (
+    Digest,
     FilmEntry,
     TheatreLine,
     _render_entry,
@@ -145,7 +146,7 @@ def test_render_text_contains_release_map(db):
     assert "1 film needs your input" in txt
     assert "fandango: 4 theatres" in txt
     html = render_html(d)
-    assert "<pre" in html and "PRIMETIME" in html
+    assert "PRIMETIME" in html and "Landmark Midtown" in html
 
 
 def test_subject_and_emptiness(db):
@@ -164,3 +165,60 @@ def test_long_theatre_name_keeps_a_gap_before_the_distance():
     where = TheatreLine("Harkins Tempe Marketplace 16", 2.0, date(2026, 10, 20), True)
     e = FilmEntry(1, "The Lost Boys", 1987, ("new_anywhere",), where, None, ())
     assert "Harkins Tempe Marketplace 16  2 mi" in _render_entry(e)[1]
+
+
+def one(e, needs_input=0, health=(), failures=()):
+    return Digest(TODAY, (e,), (), (), needs_input, tuple(health), tuple(failures))
+
+
+def test_html_stars_your_own_theatres():
+    fav = TheatreLine("Harkins Tempe Marketplace 16", 2.0, date(2026, 10, 20), True)
+    e = FilmEntry(1, "The Lost Boys", 1987, ("new_anywhere",), fav, fav, ())
+    html = render_html(one(e))
+    assert "THE LOST BOYS" in html and "1987" in html
+    assert "&#9733;" in html and "Harkins Tempe Marketplace 16" in html
+    assert "Tue 20 Oct" in html
+    assert "<pre" not in html
+
+
+def test_html_says_when_a_film_is_not_at_your_theatres():
+    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    e = FilmEntry(2, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
+    html = render_html(one(e))
+    assert "Not at your theatres. The nearest is 10 mi." in html
+    assert "&#9733;" not in html
+
+
+def test_html_shows_how_much_later_your_theatre_gets_it():
+    early = TheatreLine("Landmark Midtown", 18.0, date(2026, 9, 25), False)
+    fav = TheatreLine("AMC Metro 14", 6.0, date(2026, 9, 30), True)
+    e = FilmEntry(3, "Primetime", 2026, ("approaching",), early, fav, ())
+    html = render_html(one(e))
+    assert "5 days later" in html
+
+
+def test_html_also_line_names_three_theatres_then_counts_the_rest():
+    early = TheatreLine("Harkins Tempe Marketplace 16", 2.0, date(2026, 10, 20), True)
+    others = tuple(
+        TheatreLine(f"Theatre {i}", float(i), date(2026, 10, 20), False) for i in range(1, 9)
+    )
+    e = FilmEntry(4, "The Lost Boys", 1987, ("new_anywhere",), early, early, others)
+    html = render_html(one(e))
+    assert "Theatre 3" in html and "Theatre 4" not in html
+    assert "and 5 more" in html
+
+
+def test_html_keeps_failures_at_the_end_under_a_notice_at_the_top():
+    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    e = FilmEntry(5, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
+    html = render_html(one(e, health=["fandango: 4 theatres"], failures=["watchlist sync: boom"]))
+    assert html.index("1 error today") < html.index("POLTERGEIST")
+    assert html.index("watchlist sync: boom") > html.index("POLTERGEIST")
+    assert "fandango: 4 theatres" in html
+
+
+def test_html_escapes_a_title():
+    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    e = FilmEntry(6, "Dungeons & Dragons", 2023, ("new_anywhere",), far, None, ())
+    html = render_html(one(e))
+    assert "DUNGEONS &amp; DRAGONS" in html
