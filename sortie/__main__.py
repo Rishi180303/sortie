@@ -18,8 +18,9 @@ def cmd_run(_args) -> int:
     report = run_daily(_factory(secrets), cfg, secrets, build_runtime(cfg, secrets))
     for h in report.health:
         print(h)
-    for f in report.failures:
-        print(f"FAIL {f}", file=sys.stderr)
+    # full failure detail goes in the digest email, not the public log
+    if report.failures:
+        print(f"FAIL {len(report.failures)} source(s) failed", file=sys.stderr)
     print(f"alerts={report.alerts} emailed={report.emailed}")
     return 1 if report.failures else 0
 
