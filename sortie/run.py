@@ -83,6 +83,13 @@ def build_runtime(cfg: Config, secrets: Secrets, archive_dir: Path = Path("raw")
     )
 
 
+def _titles(names: list[str], limit: int = 5) -> str:
+    # a footer line naming 79 films is noise, so name a few and count the rest
+    if len(names) <= limit:
+        return ", ".join(names)
+    return ", ".join(names[:limit]) + f", and {len(names) - limit} more"
+
+
 def _theatres_stale(db: Session, source_name: str, now: datetime, days: int) -> bool:
     last = db.execute(
         select(func.max(FetchLog.run_at)).where(
@@ -233,7 +240,7 @@ def run_daily(
             ).scalars()
         )
         if unconfirmed:
-            titles = ", ".join(unconfirmed)
+            titles = _titles(unconfirmed)
             report.health.append(
                 f"rereleases: {flagged} flagged, {len(unconfirmed)} old films without a "
                 f"second signal: {titles}"

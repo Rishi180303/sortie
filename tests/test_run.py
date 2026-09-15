@@ -18,7 +18,7 @@ from sortie.config import (
 )
 from sortie.http import FetchError
 from sortie.models import FetchLog, FilmState, Theatre
-from sortie.run import Runtime, build_runtime, run_daily
+from sortie.run import Runtime, _titles, build_runtime, run_daily
 from sortie.sources.base import FilmDetails, ShowingInfo, TheatreInfo
 from tests.conftest import FakeSource
 
@@ -284,3 +284,8 @@ def test_fathom_failure_is_reported_and_emailed(engine, db):
     report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
     assert len(report.failures) == 1 and report.failures[0].startswith("fathom: ")
     assert report.emailed is True and m.sent[0][0] == "sortie: 1 fetch failure"
+
+
+def test_footer_title_list_names_five_then_counts_the_rest():
+    assert _titles(["Heat", "Akira"]) == "Heat, Akira"
+    assert _titles([str(i) for i in range(7)]) == "0, 1, 2, 3, 4, and 2 more"
