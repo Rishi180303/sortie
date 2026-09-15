@@ -1,0 +1,47 @@
+name: probe
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/probe.yml']
+
+jobs:
+  datacenter-ip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - run: uv sync
+      - name: runner network
+        run: curl -s https://ipinfo.io/json || true
+      - name: fandango napi serves this runner
+        run: |
+          uv run python - <<'PY'
+          import json
+          from curl_cffi import requests
+          from sortie.sources.fandango import parse_nearby
+          s = requests.Session(impersonate="chrome")
+          r = s.get(
+              "https://www.fandango.com/napi/nearbyTheaters",
+              headers={"Accept": "application/json", "Referer": "https://www.fandango.com/"},
+              params={"zipCode": "10001", "limit": "100"},
+              timeout=30,
+          )
+          print("status", r.status_code, "bytes", len(r.text))
+          print(r.text[:400])
+          if r.status_code != 200:
+              raise SystemExit(1)
+          n = len(parse_nearby(json.loads(r.text)))
+          print("theatres parsed:", n)
+          raise SystemExit(0 if n else 1)
+          PY
+      - name: letterboxd serves this runner
+        if: always()
+        run: |
+          uv run python - <<'PY'
+          from curl_cffi import requests
+          s = requests.Session(impersonate="chrome")
+          r = s.get("https://letterboxd.com/example-user/watchlist/", timeout=30)
+          print("status", r.status_code, "bytes", len(r.text))
+          raise SystemExit(1 if r.status_code == 403 else 0)
+          PY
