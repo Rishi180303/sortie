@@ -68,19 +68,37 @@ Resend can send to your own account email without any domain setup.
 
 ## running it
 
+sortie runs itself on github actions. the `daily` workflow wakes at 11:30 UTC,
+applies migrations, and runs the collector against a hosted postgres. it emails
+you only when something changed, and it emails you whenever a source failed.
+
+to set it up on your own fork you need a postgres database the workflow can
+reach. neon's free tier works. then add these repository secrets under
+settings, secrets and variables, actions:
+
+| secret | what it holds |
+|---|---|
+| `DATABASE_URL` | your database url, using the `postgresql+psycopg://` scheme |
+| `TMDB_API_KEY` | your tmdb key |
+| `RESEND_API_KEY` | your resend key |
+| `ALERT_EMAIL_TO` | where the digest is sent |
+| `SORTIE_CONFIG` | the contents of your `config.toml` |
+
+`config.toml` holds your location and letterboxd username, so it is never
+committed. the workflow writes it from the secret at the start of each run.
+copy `config.example.toml` to build yours.
+
+to change when the digest arrives, edit the cron in
+`.github/workflows/daily.yml`. the `send_hour` setting in `config.toml` only
+applies to `sortie schedule`, which is the old long-running local mode.
+
+you can also run it by hand from the actions tab with "run workflow", or
+locally once `.env` and `config.toml` exist:
+
 ```bash
-uv run sortie refresh-theatres   # fetch theatres near your zip code
-uv run sortie run                # one full pass: sync watchlist, sweep showtimes, match, email
-uv run sortie schedule           # run once a day at [alerts].send_hour, forever
-uv run sortie serve              # start a small health-check API
-```
-
-Run `refresh-theatres` once before your first `run`. After that, `run` refreshes theatres on its own every 30 days.
-
-There is no command yet for picking favourite theatres. That is plan 3. Until then, mark one directly in postgres:
-
-```sql
-update theatre set is_favourite = true where name = 'AMC Metro 14';
+docker compose up -d db
+uv run alembic upgrade head
+uv run sortie run
 ```
 
 ## a note on data sources
