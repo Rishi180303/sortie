@@ -5,43 +5,52 @@ on:
     paths: ['.github/workflows/probe.yml']
 
 jobs:
-  datacenter-ip:
+  sustained-load:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv python install 3.12
       - run: uv sync
-      - name: runner network
-        run: curl -s https://ipinfo.io/json || true
-      - name: fandango napi serves this runner
+      - name: fandango serves a sustained sweep
         run: |
           uv run python - <<'PY'
-          import json
+          import json, time
           from curl_cffi import requests
-          from sortie.sources.fandango import parse_nearby
+          from sortie.sources.fandango import parse_nearby, parse_calendar
+
+          H = {"Accept": "application/json", "Referer": "https://www.fandango.com/"}
           s = requests.Session(impersonate="chrome")
-          r = s.get(
-              "https://www.fandango.com/napi/nearbyTheaters",
-              headers={"Accept": "application/json", "Referer": "https://www.fandango.com/"},
-              params={"zipCode": "10001", "limit": "100"},
-              timeout=30,
-          )
-          print("status", r.status_code, "bytes", len(r.text))
-          print(r.text[:400])
-          if r.status_code != 200:
-              raise SystemExit(1)
-          n = len(parse_nearby(json.loads(r.text)))
-          print("theatres parsed:", n)
-          raise SystemExit(0 if n else 1)
-          PY
-      - name: letterboxd serves this runner
-        if: always()
-        run: |
-          uv run python - <<'PY'
-          from curl_cffi import requests
-          s = requests.Session(impersonate="chrome")
-          r = s.get("https://letterboxd.com/example-user/watchlist/", timeout=30)
-          print("status", r.status_code, "bytes", len(r.text))
-          raise SystemExit(1 if r.status_code == 403 else 0)
+          codes = {}
+
+          def get(url, params=None):
+              r = s.get(url, headers=H, params=params, timeout=30)
+              codes[r.status_code] = codes.get(r.status_code, 0) + 1
+              time.sleep(1)
+              return r
+
+          r = get("https://www.fandango.com/napi/nearbyTheaters",
+                  {"zipCode": "10001", "limit": "100"})
+          theatres = parse_nearby(json.loads(r.text))
+          print("theatres discovered:", len(theatres))
+
+          done = 0
+          for t in theatres[:3]:
+              tid = t.source_theatre_id
+              c = get(f"https://www.fandango.com/napi/theaterCalendar/{tid}")
+              if c.status_code != 200:
+                  print("calendar failed at", done, c.status_code)
+                  break
+              for d in parse_calendar(json.loads(c.text))[:15]:
+                  sr = get(f"https://www.fandango.com/napi/theaterMovieShowtimes/{tid}",
+                           {"date": d.isoformat()})
+                  done += 1
+                  if sr.status_code != 200:
+                      print("BLOCKED after", done, "showtime requests ->", sr.status_code)
+                      print(sr.text[:300])
+                      raise SystemExit(1)
+
+          print("showtime requests ok:", done)
+          print("status codes:", codes)
+          raise SystemExit(0 if done >= 30 else 1)
           PY
