@@ -33,10 +33,3 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
-      - name: keep the archive when the run failed
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: raw-${{ github.run_id }}
-          path: raw/
-          retention-days: 7
