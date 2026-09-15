@@ -266,7 +266,7 @@ def _html_entry(e: FilmEntry) -> list[str]:
     kinds = ", ".join(KIND_LABEL[k] for k in e.kinds)
     out = [
         f'<div style="{TITLE}">{_html.escape(e.title.upper())}{year}</div>',
-        f'<div style="{KINDS}">{_html.escape(kinds[:1].upper() + kinds[1:])}</div>',
+        f'<div style="{KINDS}">{_html.escape(kinds.capitalize())}</div>',
         f"<div><b>{_html_date(e.earliest.date)}</b> at {_with_miles(e.earliest)}.</div>",
     ]
 
