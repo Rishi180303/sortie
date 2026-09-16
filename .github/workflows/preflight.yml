@@ -12,71 +12,58 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv python install 3.12
       - run: uv sync
-
-      - name: report the client library versions
-        if: always()
+      - name: diagnose reachability and report as annotations
         run: |
-          uv run python -c "
-          import psycopg
-          print('psycopg', psycopg.__version__)
-          print('libpq', psycopg.pq.version(), 'impl', psycopg.pq.__impl__)
-          "
+          uv run python - <<'PY'
+          import os, socket, time, urllib.parse as up
 
-      - name: DNS resolves the database host
-        if: always()
-        run: |
-          uv run python -c "
-          import os, socket, urllib.parse as up
-          h = up.urlparse(os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)).hostname
-          print('host:', h)
-          for fam, _, _, _, sa in socket.getaddrinfo(h, 5432, proto=socket.IPPROTO_TCP):
-              print(' ', fam.name, sa[0])
-          "
+          def note(msg):
+              print(f"::error::{msg}")
+
+          url = os.environ["U"].replace("postgresql+psycopg://", "postgresql://", 1)
+          p = up.urlparse(url)
+          host, port = p.hostname, p.port or 5432
+          note(f"host={host} port={port}")
+
+          try:
+              infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+              note("dns=" + " | ".join(f"{i[0].name}:{i[4][0]}" for i in infos))
+          except Exception as e:
+              note(f"dns FAILED {type(e).__name__}: {e}")
+              infos = []
+
+          for fam, _, _, _, sa in infos:
+              t = time.time()
+              s = socket.socket(fam, socket.SOCK_STREAM)
+              s.settimeout(15)
+              try:
+                  s.connect(sa[:2] if fam == socket.AF_INET else sa)
+                  note(f"tcp {sa[0]} OK in {time.time()-t:.1f}s")
+              except Exception as e:
+                  note(f"tcp {sa[0]} FAILED after {time.time()-t:.1f}s {type(e).__name__}: {e}")
+              finally:
+                  s.close()
+
+          # can this runner reach anything on 5432 at all, and the wider internet?
+          for probe_host, probe_port, label in [
+              ("api.themoviedb.org", 443, "tmdb:443"),
+              ("www.fandango.com", 443, "fandango:443"),
+              (host, 443, "neonhost:443"),
+          ]:
+              t = time.time()
+              try:
+                  socket.create_connection((probe_host, probe_port), timeout=15).close()
+                  note(f"{label} OK in {time.time()-t:.1f}s")
+              except Exception as e:
+                  note(f"{label} FAILED {type(e).__name__}: {e}")
+
+          try:
+              import psycopg
+              t = time.time()
+              with psycopg.connect(url, connect_timeout=20) as c:
+                  n = c.execute("select count(*) from film").fetchone()[0]
+              note(f"psycopg OK in {time.time()-t:.1f}s films={n}")
+          except Exception as e:
+              note(f"psycopg FAILED {type(e).__name__}: {str(e)[:300]}")
+          PY
         env: { U: "${{ secrets.DATABASE_URL }}" }
-
-      - name: TCP reaches port 5432
-        if: always()
-        run: |
-          uv run python -c "
-          import os, socket, urllib.parse as up
-          h = up.urlparse(os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)).hostname
-          s = socket.create_connection((h, 5432), timeout=25); s.close(); print('tcp ok')
-          "
-        env: { U: "${{ secrets.DATABASE_URL }}" }
-
-      - name: connects with channel binding dropped
-        if: always()
-        run: |
-          uv run python -c "
-          import os, re, psycopg
-          u = os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)
-          u = re.sub(r'[?&]channel_binding=require', lambda m: '?' if m.group(0)[0]=='?' else '', u).replace('?&','?').rstrip('?&')
-          with psycopg.connect(u, connect_timeout=25) as c:
-              print('films:', c.execute('select count(*) from film').fetchone()[0])
-          "
-        env: { U: "${{ secrets.DATABASE_URL }}" }
-
-      - name: connects exactly as the secret is written
-        if: always()
-        run: |
-          uv run python -c "
-          import os, psycopg
-          u = os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)
-          with psycopg.connect(u, connect_timeout=25) as c:
-              print('films:', c.execute('select count(*) from film').fetchone()[0])
-          "
-        env: { U: "${{ secrets.DATABASE_URL }}" }
-
-      - name: connects through sqlalchemy as the app does
-        if: always()
-        run: |
-          uv run python -c "
-          from sqlalchemy import text
-          from sortie.config import load_secrets
-          from sortie.db import make_engine
-          with make_engine(load_secrets().database_url).connect() as c:
-              print('films:', c.execute(text('select count(*) from film')).scalar())
-          "
-        env:
-          DATABASE_URL: "${{ secrets.DATABASE_URL }}"
-          TMDB_API_KEY: "${{ secrets.TMDB_API_KEY }}"
