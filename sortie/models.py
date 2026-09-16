@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -144,3 +144,22 @@ class FetchLog(Base):
     rows: Mapped[int | None] = mapped_column(Integer)
     ok: Mapped[bool] = mapped_column(default=True)
     error: Mapped[str | None] = mapped_column(String(1000))
+
+
+class Setting(Base):
+    __tablename__ = "setting"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Digest(Base):
+    __tablename__ = "digest"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    subject: Mapped[str] = mapped_column(Text)
+    text_body: Mapped[str] = mapped_column(Text)
+    html_body: Mapped[str] = mapped_column(Text)
+    alert_count: Mapped[int] = mapped_column(Integer, default=0)

@@ -16,7 +16,7 @@ from sortie.clients.tmdb import TmdbClient
 from sortie.config import Config, Secrets
 from sortie.http import HttpClient
 from sortie.matching.resolve import ResolveResult, resolve_pending
-from sortie.models import FetchLog, Film, FilmState, MatchQueue
+from sortie.models import Digest, FetchLog, Film, FilmState, MatchQueue, Setting
 from sortie.sources.base import ShowtimeSource
 from sortie.sync.films import hydrate_film
 from sortie.sync.showtimes import SweepResult, sweep_showtimes
@@ -90,6 +90,26 @@ def _titles(names: list[str], limit: int = 5) -> str:
     return ", ".join(names[:limit]) + f", and {len(names) - limit} more"
 
 
+def _write_settings(db: Session, cfg: Config, now: datetime) -> None:
+    # the ui shows what the collector actually ran with, so it never has to guess
+    values = {
+        "postal_code": cfg.location.postal_code,
+        "radius_miles": str(cfg.location.radius_miles),
+        "letterboxd_username": cfg.letterboxd.username,
+        "send_hour": str(cfg.alerts.send_hour),
+        "approaching_days": str(cfg.alerts.approaching_days),
+        "rerelease_gap_years": str(cfg.alerts.rerelease_gap_years),
+        "last_run_at": now.isoformat(),
+    }
+    for key, value in values.items():
+        row = db.get(Setting, key)
+        if row is None:
+            db.add(Setting(key=key, value=value, updated_at=now))
+        else:
+            row.value = value
+            row.updated_at = now
+
+
 def _theatres_stale(db: Session, source_name: str, now: datetime, days: int) -> bool:
     last = db.execute(
         select(func.max(FetchLog.run_at)).where(
@@ -130,6 +150,7 @@ def run_daily(
     report = RunReport(today=today)
 
     with session_factory() as db:
+        _write_settings(db, cfg, now)
 
         def ensure_film(tid: int) -> None:
             hydrate_film(db, rt.tmdb, tid, now)
@@ -267,8 +288,19 @@ def run_daily(
         digest = build_digest(db, alerts, today, needs_input, report.health, report.failures)
         heartbeat = today.weekday() == 6
         if rt.mailer is not None and (not is_empty(digest) or heartbeat):
-            rt.mailer(subject(digest), render_text(digest), render_html(digest))
+            subj, text, html = subject(digest), render_text(digest), render_html(digest)
+            rt.mailer(subj, text, html)
             report.emailed = True
+            # keep what we sent, the digest screen shows history
+            db.add(
+                Digest(
+                    sent_at=now,
+                    subject=subj,
+                    text_body=text,
+                    html_body=html,
+                    alert_count=report.alerts,
+                )
+            )
 
         # 10. flush fetch logs
         _flush_fetch_logs(db, rt, now)

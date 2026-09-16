@@ -17,7 +17,7 @@ from sortie.config import (
     SourcesCfg,
 )
 from sortie.http import FetchError
-from sortie.models import FetchLog, FilmState, Theatre
+from sortie.models import Digest, FetchLog, FilmState, Setting, Theatre
 from sortie.run import Runtime, _titles, build_runtime, run_daily
 from sortie.sources.base import FilmDetails, ShowingInfo, TheatreInfo
 from tests.conftest import FakeSource
@@ -289,3 +289,37 @@ def test_fathom_failure_is_reported_and_emailed(engine, db):
 def test_footer_title_list_names_five_then_counts_the_rest():
     assert _titles(["Heat", "Akira"]) == "Heat, Akira"
     assert _titles([str(i) for i in range(7)]) == "0, 1, 2, 3, 4, and 2 more"
+
+
+def test_run_records_its_settings_and_the_digest_it_sent(engine, db):
+    src = FakeSource(
+        theatres=[TheatreInfo("far", "Landmark Midtown", distance_miles=18.0)],
+        showings={"far": [ShowingInfo("902", "Heat (2026)", 2026, date(2026, 9, 20), ["19:00"])]},
+        details={"902": FilmDetails(170, "Michael Mann", ["Al Pacino", "Robert De Niro"])},
+    )
+    m = Mailer()
+    rt = Runtime(sources=[src], tmdb=TwoFilmTmdb(), lb=FakeLb(), mailer=m, fathom=FakeFathom())
+    report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+
+    with factory(engine)() as s:
+        settings = {r.key: r.value for r in s.execute(select(Setting)).scalars()}
+        assert settings["postal_code"] == CFG.location.postal_code
+        assert settings["radius_miles"] == str(CFG.location.radius_miles)
+        assert settings["letterboxd_username"] == CFG.letterboxd.username
+        assert settings["last_run_at"]
+
+        if report.emailed:
+            d = s.execute(select(Digest)).scalars().one()
+            assert d.subject == m.sent[0][0]
+            assert d.text_body == m.sent[0][1]
+            assert d.html_body == m.sent[0][2]
+            assert d.alert_count == report.alerts
+
+
+def test_a_run_that_sends_nothing_writes_no_digest_row(engine, db):
+    src = FakeSource(theatres=[], showings={}, details={})
+    rt = Runtime(sources=[src], tmdb=TwoFilmTmdb(), lb=FakeLb(), mailer=None, fathom=FakeFathom())
+    run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+    with factory(engine)() as s:
+        assert s.execute(select(func.count()).select_from(Digest)).scalar() == 0
+        assert s.execute(select(func.count()).select_from(Setting)).scalar() > 0
