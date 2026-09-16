@@ -1,11 +1,11 @@
-name: preflight  # round 3
+name: preflight
 on:
   workflow_dispatch:
   push:
     paths: ['.github/workflows/preflight.yml']
 
 jobs:
-  secrets:
+  connectivity:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,74 +13,70 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync
 
-      - name: DATABASE_URL is set
-        if: always()
-        run: '[ -n "$V" ]'
-        env: { V: "${{ secrets.DATABASE_URL }}" }
-
-      - name: DATABASE_URL uses the psycopg scheme
-        if: always()
-        run: 'case "$V" in postgresql+psycopg://*) exit 0 ;; *) exit 1 ;; esac'
-        env: { V: "${{ secrets.DATABASE_URL }}" }
-
-      - name: DATABASE_URL has no stray whitespace
-        if: always()
-        run: '[ "$(printf %s "$V" | wc -c)" -eq "$(printf %s "$V" | tr -d "[:space:]" | wc -c)" ]'
-        env: { V: "${{ secrets.DATABASE_URL }}" }
-
-      - name: TMDB_API_KEY is set
-        if: always()
-        run: '[ -n "$V" ]'
-        env: { V: "${{ secrets.TMDB_API_KEY }}" }
-
-      - name: RESEND_API_KEY is set
-        if: always()
-        run: '[ -n "$V" ]'
-        env: { V: "${{ secrets.RESEND_API_KEY }}" }
-
-      - name: ALERT_EMAIL_TO is set
-        if: always()
-        run: '[ -n "$V" ]'
-        env: { V: "${{ secrets.ALERT_EMAIL_TO }}" }
-
-      - name: SORTIE_CONFIG parses as config
+      - name: report the client library versions
         if: always()
         run: |
-          printf '%s' "$V" > config.toml
           uv run python -c "
-          from sortie.config import load_config
-          c = load_config()
-          print('config sections ok, radius', c.location.radius_miles, 'send_hour', c.alerts.send_hour)
+          import psycopg
+          print('psycopg', psycopg.__version__)
+          print('libpq', psycopg.pq.version(), 'impl', psycopg.pq.__impl__)
           "
-        env: { V: "${{ secrets.SORTIE_CONFIG }}" }
 
-      - name: the database accepts a connection
+      - name: DNS resolves the database host
+        if: always()
+        run: |
+          uv run python -c "
+          import os, socket, urllib.parse as up
+          h = up.urlparse(os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)).hostname
+          print('host:', h)
+          for fam, _, _, _, sa in socket.getaddrinfo(h, 5432, proto=socket.IPPROTO_TCP):
+              print(' ', fam.name, sa[0])
+          "
+        env: { U: "${{ secrets.DATABASE_URL }}" }
+
+      - name: TCP reaches port 5432
+        if: always()
+        run: |
+          uv run python -c "
+          import os, socket, urllib.parse as up
+          h = up.urlparse(os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)).hostname
+          s = socket.create_connection((h, 5432), timeout=25); s.close(); print('tcp ok')
+          "
+        env: { U: "${{ secrets.DATABASE_URL }}" }
+
+      - name: connects with channel binding dropped
+        if: always()
+        run: |
+          uv run python -c "
+          import os, re, psycopg
+          u = os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)
+          u = re.sub(r'[?&]channel_binding=require', lambda m: '?' if m.group(0)[0]=='?' else '', u).replace('?&','?').rstrip('?&')
+          with psycopg.connect(u, connect_timeout=25) as c:
+              print('films:', c.execute('select count(*) from film').fetchone()[0])
+          "
+        env: { U: "${{ secrets.DATABASE_URL }}" }
+
+      - name: connects exactly as the secret is written
         if: always()
         run: |
           uv run python -c "
           import os, psycopg
-          u = os.environ['DATABASE_URL'].replace('postgresql+psycopg://','postgresql://',1)
-          with psycopg.connect(u, connect_timeout=20) as c:
-              n = c.execute(\"select count(*) from information_schema.tables where table_schema='public'\").fetchone()[0]
-              print('connected, public tables:', n)
+          u = os.environ['U'].replace('postgresql+psycopg://','postgresql://',1)
+          with psycopg.connect(u, connect_timeout=25) as c:
+              print('films:', c.execute('select count(*) from film').fetchone()[0])
           "
-        env: { DATABASE_URL: "${{ secrets.DATABASE_URL }}" }
+        env: { U: "${{ secrets.DATABASE_URL }}" }
 
-      - name: alembic reports a current revision
+      - name: connects through sqlalchemy as the app does
         if: always()
-        run: uv run alembic current
+        run: |
+          uv run python -c "
+          from sqlalchemy import text
+          from sortie.config import load_secrets
+          from sortie.db import make_engine
+          with make_engine(load_secrets().database_url).connect() as c:
+              print('films:', c.execute(text('select count(*) from film')).scalar())
+          "
         env:
           DATABASE_URL: "${{ secrets.DATABASE_URL }}"
           TMDB_API_KEY: "${{ secrets.TMDB_API_KEY }}"
-
-      - name: NOT saved under the Variables tab
-        if: always()
-        run: '[ -z "$A$B$C" ]'
-        env:
-          A: "${{ vars.DATABASE_URL }}"
-          B: "${{ vars.TMDB_API_KEY }}"
-          C: "${{ vars.SORTIE_CONFIG }}"
-
-      - name: this run is against the expected repository
-        if: always()
-        run: '[ "$GITHUB_REPOSITORY" = "Rishi180303/sortie" ] && echo "$GITHUB_REPOSITORY"'
