@@ -72,3 +72,15 @@ jobs:
         env:
           DATABASE_URL: "${{ secrets.DATABASE_URL }}"
           TMDB_API_KEY: "${{ secrets.TMDB_API_KEY }}"
+
+      - name: NOT saved under the Variables tab
+        if: always()
+        run: '[ -z "$A$B$C" ]'
+        env:
+          A: "${{ vars.DATABASE_URL }}"
+          B: "${{ vars.TMDB_API_KEY }}"
+          C: "${{ vars.SORTIE_CONFIG }}"
+
+      - name: this run is against the expected repository
+        if: always()
+        run: '[ "$GITHUB_REPOSITORY" = "Rishi180303/sortie" ] && echo "$GITHUB_REPOSITORY"'
