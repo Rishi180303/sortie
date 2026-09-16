@@ -298,8 +298,16 @@ def test_run_records_its_settings_and_the_digest_it_sent(engine, db):
         details={"902": FilmDetails(170, "Michael Mann", ["Al Pacino", "Robert De Niro"])},
     )
     m = Mailer()
-    rt = Runtime(sources=[src], tmdb=TwoFilmTmdb(), lb=FakeLb(), mailer=m, fathom=FakeFathom())
+    rt = Runtime(
+        sources=[src],
+        tmdb=TwoFilmTmdb(),
+        lb=FakeLb(),
+        mailer=m,
+        fathom=FakeFathom({"heat", "spirited away"}),
+    )
     report = run_daily(factory(engine), CFG, SECRETS, rt, today=TODAY, now=NOW)
+    assert report.alerts == 1
+    assert report.emailed is True
 
     with factory(engine)() as s:
         settings = {r.key: r.value for r in s.execute(select(Setting)).scalars()}
@@ -308,12 +316,11 @@ def test_run_records_its_settings_and_the_digest_it_sent(engine, db):
         assert settings["letterboxd_username"] == CFG.letterboxd.username
         assert settings["last_run_at"]
 
-        if report.emailed:
-            d = s.execute(select(Digest)).scalars().one()
-            assert d.subject == m.sent[0][0]
-            assert d.text_body == m.sent[0][1]
-            assert d.html_body == m.sent[0][2]
-            assert d.alert_count == report.alerts
+        d = s.execute(select(Digest)).scalars().one()
+        assert d.subject == m.sent[0][0]
+        assert d.text_body == m.sent[0][1]
+        assert d.html_body == m.sent[0][2]
+        assert d.alert_count == report.alerts
 
 
 def test_a_run_that_sends_nothing_writes_no_digest_row(engine, db):
