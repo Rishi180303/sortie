@@ -8,6 +8,7 @@ from sortie.normalize import strip_year
 
 BASE = "https://letterboxd.com"
 _TMDB_HREF = re.compile(r"themoviedb\.org/movie/(\d+)")
+_TMDB_TV_HREF = re.compile(r"themoviedb\.org/tv/\d+")
 
 
 def _attr(tag, name: str) -> str:
@@ -50,6 +51,11 @@ def parse_watchlist_page(html: str) -> list[WatchlistItem]:
 
 
 def parse_film_tmdb_id(html: str) -> int | None:
+    # he keeps miniseries on his watchlist, and their hidden film id can be a dead
+    # record, so a link to a tmdb tv page means this is not a film we can match
+    if _TMDB_TV_HREF.search(html):
+        return None
+
     soup = BeautifulSoup(html, "html.parser")
 
     # try to get tmdb id from data-tmdb-id on body tag

@@ -79,3 +79,15 @@ def test_tmdb_id_for_uses_film_page(routed, http):
     routed.add("/film/look-back-2026/", 200, FILM_PAGE)
     assert LetterboxdClient(http).tmdb_id_for("look-back-2026") == 12345
     assert routed.calls[0][1] == "https://letterboxd.com/film/look-back-2026/"
+
+
+TV_PAGE = """
+<html><body data-tmdb-id="409696" data-tmdb-type="movie">
+<a href="https://www.themoviedb.org/tv/61617/">TMDb</a>
+</body></html>
+"""
+
+
+def test_a_tv_entry_is_not_treated_as_a_film():
+    # letterboxd lists miniseries too, and its hidden id can point at a dead film record
+    assert parse_film_tmdb_id(TV_PAGE) is None
