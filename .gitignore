@@ -27,6 +27,9 @@ node_modules/
 out/
 .vercel/
 *.tsbuildinfo
+web/node_modules/
+web/.next/
+web/.env.local
 
 # OS / editor
 .DS_Store
