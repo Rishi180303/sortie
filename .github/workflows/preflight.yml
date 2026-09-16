@@ -1,4 +1,4 @@
-name: preflight
+name: preflight2
 on:
   workflow_dispatch:
   push:
