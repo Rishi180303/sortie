@@ -10,9 +10,13 @@ export function middleware(req: NextRequest) {
 
   const header = req.headers.get("authorization") ?? "";
   if (header.startsWith("Basic ")) {
-    const decoded = atob(header.slice(6));
-    const password = decoded.slice(decoded.indexOf(":") + 1);
-    if (password === expected) return NextResponse.next();
+    try {
+      const decoded = atob(header.slice(6));
+      const password = decoded.slice(decoded.indexOf(":") + 1);
+      if (password === expected) return NextResponse.next();
+    } catch {
+      // malformed base64, fall through to the 401 below
+    }
   }
 
   return new NextResponse("Not authorised", {
