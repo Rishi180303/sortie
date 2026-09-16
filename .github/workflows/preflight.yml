@@ -1,0 +1,74 @@
+name: preflight
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/preflight.yml']
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+      - run: uv sync
+
+      - name: DATABASE_URL is set
+        if: always()
+        run: '[ -n "$V" ]'
+        env: { V: "${{ secrets.DATABASE_URL }}" }
+
+      - name: DATABASE_URL uses the psycopg scheme
+        if: always()
+        run: 'case "$V" in postgresql+psycopg://*) exit 0 ;; *) exit 1 ;; esac'
+        env: { V: "${{ secrets.DATABASE_URL }}" }
+
+      - name: DATABASE_URL has no stray whitespace
+        if: always()
+        run: '[ "$(printf %s "$V" | wc -c)" -eq "$(printf %s "$V" | tr -d "[:space:]" | wc -c)" ]'
+        env: { V: "${{ secrets.DATABASE_URL }}" }
+
+      - name: TMDB_API_KEY is set
+        if: always()
+        run: '[ -n "$V" ]'
+        env: { V: "${{ secrets.TMDB_API_KEY }}" }
+
+      - name: RESEND_API_KEY is set
+        if: always()
+        run: '[ -n "$V" ]'
+        env: { V: "${{ secrets.RESEND_API_KEY }}" }
+
+      - name: ALERT_EMAIL_TO is set
+        if: always()
+        run: '[ -n "$V" ]'
+        env: { V: "${{ secrets.ALERT_EMAIL_TO }}" }
+
+      - name: SORTIE_CONFIG parses as config
+        if: always()
+        run: |
+          printf '%s' "$V" > config.toml
+          uv run python -c "
+          from sortie.config import load_config
+          c = load_config()
+          print('config sections ok, radius', c.location.radius_miles, 'send_hour', c.alerts.send_hour)
+          "
+        env: { V: "${{ secrets.SORTIE_CONFIG }}" }
+
+      - name: the database accepts a connection
+        if: always()
+        run: |
+          uv run python -c "
+          import os, psycopg
+          u = os.environ['DATABASE_URL'].replace('postgresql+psycopg://','postgresql://',1)
+          with psycopg.connect(u, connect_timeout=20) as c:
+              n = c.execute(\"select count(*) from information_schema.tables where table_schema='public'\").fetchone()[0]
+              print('connected, public tables:', n)
+          "
+        env: { DATABASE_URL: "${{ secrets.DATABASE_URL }}" }
+
+      - name: alembic reports a current revision
+        if: always()
+        run: uv run alembic current
+        env:
+          DATABASE_URL: "${{ secrets.DATABASE_URL }}"
+          TMDB_API_KEY: "${{ secrets.TMDB_API_KEY }}"
