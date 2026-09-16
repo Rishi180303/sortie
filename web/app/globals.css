@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+@theme {
+  --color-green: #3b4134;
+  --color-green-2: #464d3d;
+  --color-orange: #e2562c;
+  --color-snow: #f2f0eb;
+  --color-sage: #9aa08c;
+  --color-line: #575e4b;
+
+  --font-display: var(--font-syne), sans-serif;
+  --font-sans: var(--font-archivo), sans-serif;
+}
+
+/* film perforations, the one motif in the system. bleeds past the page gutter. */
+.sprocket {
+  height: 16px;
+  margin: 0 -22px;
+  background: repeating-linear-gradient(to right, var(--color-orange) 0 14px, transparent 14px 30px);
+  -webkit-mask: repeating-linear-gradient(to right, #000 0 14px, transparent 14px 30px);
+  mask: repeating-linear-gradient(to right, #000 0 14px, transparent 14px 30px);
+  opacity: 0.9;
+}
+.sprocket.thin {
+  height: 10px;
+  opacity: 0.5;
+}
+
+/* line up digits wherever numbers sit in a column */
+.num {
+  font-variant-numeric: tabular-nums;
+}
