@@ -55,3 +55,19 @@ def test_load_secrets_from_env(monkeypatch):
     assert s.tmdb_api_key == "abc"
     assert s.alert_email_to == "me@example.com"
     assert s.resend_api_key == ""
+
+
+def test_a_plain_postgres_url_is_pointed_at_psycopg3(monkeypatch):
+    # hosted providers hand out postgresql://, sqlalchemy would reach for psycopg2
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com/neondb?sslmode=require")
+    monkeypatch.setenv("TMDB_API_KEY", "x")
+    s = load_secrets(env_file=None)
+    assert s.database_url == "postgresql+psycopg://u:p@db.example.com/neondb?sslmode=require"
+
+
+def test_an_explicit_driver_is_left_alone(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@db.example.com/neondb")
+    monkeypatch.setenv("TMDB_API_KEY", "x")
+    assert (
+        load_secrets(env_file=None).database_url == "postgresql+psycopg://u:p@db.example.com/neondb"
+    )

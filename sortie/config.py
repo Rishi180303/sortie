@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,14 @@ class Secrets(BaseSettings):
     resend_api_key: str = ""
     alert_email_to: str = ""
     amc_vendor_key: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3(cls, v: str) -> str:
+        # hosted providers hand out postgresql://, which makes sqlalchemy reach for psycopg2
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        return v
 
 
 class LocationCfg(BaseModel):
