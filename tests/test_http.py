@@ -175,3 +175,18 @@ def test_transport_error_after_http_error_archives_nothing(tmp_path: Path):
         c.get("https://x.test/a", target="a")
     assert not (tmp_path / "2026-09-08").exists()
     assert c.records[-1].status is None
+
+
+def test_error_message_counts_the_attempts_actually_made():
+    # a 404 is permanent, so it is tried once, not four times
+    c, ft, _, _ = make([(404, "gone")])
+    with pytest.raises(FetchError) as e:
+        c.get("https://x/a", target="a")
+    assert "after 1 attempt(s)" in str(e.value)
+    assert len(ft.calls) == 1
+
+    c, ft, _, _ = make([(500, "boom")] * 4)
+    with pytest.raises(FetchError) as e:
+        c.get("https://x/b", target="b")
+    assert "after 4 attempt(s)" in str(e.value)
+    assert len(ft.calls) == 4

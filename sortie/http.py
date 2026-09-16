@@ -128,10 +128,12 @@ class HttpClient:
                     self._raw("GET", self.warm_url, None, None, None)
                 except OSError:
                     pass  # a failed warm-up only means the next attempt is not warmed
+        # say how many attempts we actually made, a permanent status is not retried
+        made = attempt + 1
         if last_status is None:
-            err = f"transport error after {self.retries + 1} attempt(s): {last_error}"
+            err = f"transport error after {made} attempt(s): {last_error}"
         else:
-            err = f"HTTP {last_status} after {self.retries + 1} attempt(s)"
+            err = f"HTTP {last_status} after {made} attempt(s)"
         # keep the failed body so we can see why the site blocked us
         if text:
             self._archive(f"{target}-{last_status}", text)
