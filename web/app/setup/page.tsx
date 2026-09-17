@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { TheatreToggle } from "./theatre-toggles";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export default async function SetupPage() {
       </h2>
       {settings.length === 0 ? (
         <p className="border-t border-line py-5 text-sage">
-          The collector hasn&rsquo;t run yet — nothing recorded.
+          The collector hasn&rsquo;t run yet, nothing recorded.
         </p>
       ) : (
         <div>
@@ -70,19 +71,7 @@ export default async function SetupPage() {
       </h2>
       <div>
         {theatres.map((t) => (
-          <div key={t.id} className="border-t border-line py-4 hover:bg-green-2">
-            <div className="font-display text-lg font-bold">
-              {t.is_favourite && <span className="text-orange">&#9670; </span>}
-              {t.name}
-            </div>
-            <div className="num mt-1 text-[13px] text-sage">
-              {t.distance_miles !== null ? `${Math.round(t.distance_miles)} mi` : "unknown"}
-              {" · "}
-              {t.tracked ? "tracked" : "not tracked"}
-              {" · "}
-              {t.upcoming} upcoming
-            </div>
-          </div>
+          <TheatreToggle key={t.id} theatre={t} />
         ))}
       </div>
     </main>

@@ -44,7 +44,7 @@ export default async function WatchlistPage() {
       <h2 className="mt-11 mb-2 font-display text-[13px] font-extrabold tracking-[.2em] text-orange uppercase">
         Unresolved
       </h2>
-      <p className="mb-4 text-sage">Usually television — sortie only tracks cinema showtimes.</p>
+      <p className="mb-4 text-sage">Usually television, sortie only tracks cinema showtimes.</p>
 
       {unresolved.length === 0 ? (
         <p className="border-t border-line py-5 text-sage">Every film resolved.</p>
