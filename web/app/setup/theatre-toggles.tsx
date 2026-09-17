@@ -32,6 +32,8 @@ export function TheatreToggle({ theatre }: { theatre: Theatre }) {
         return;
       }
       router.refresh();
+      // refresh keeps this component's useState (and the row's key), so re-enable by hand
+      setPending(false);
     } catch {
       setError("Save failed. Try again.");
       setPending(false);
