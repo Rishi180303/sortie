@@ -10,9 +10,17 @@ const pool =
     connectionString: process.env.DATABASE_URL,
     max: 3,
     idleTimeoutMillis: 10_000,
+    // generous on purpose: neon's free tier suspends idle compute, so a cold start
+    // can take a few seconds instead of hanging until the whole function times out
+    connectionTimeoutMillis: 10_000,
   });
 
-if (!globalForPool.pool) globalForPool.pool = pool;
+if (!globalForPool.pool) {
+  // an idle socket can be reset while the lambda is frozen; with no listener that
+  // unhandled 'error' event crashes the instance
+  pool.on("error", (err) => console.error(err));
+  globalForPool.pool = pool;
+}
 
 // true only for an int postgres can store in an int4 column (max is 2^31 - 1)
 export function isId(v: unknown): v is number {
