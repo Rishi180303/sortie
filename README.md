@@ -109,20 +109,26 @@ uv run sortie schedule           # run once a day at [alerts].send_hour, the old
 uv run sortie serve              # start a small api with a /health endpoint
 ```
 
-run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. pick favourites and toggle which cinemas are tracked from the setup screen in the web ui.
+run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. pick favourites and toggle which cinemas are tracked from the setup screen in the web ui. if you are not running the web ui, mark a favourite directly in postgres instead:
+
+```sql
+update theatre set is_favourite = true where name = 'AMC Metro 14';
+```
 
 ## the web ui
 
 the `web` folder is a small next.js app that reads the same database the collector writes to. four screens:
 
-- **setup** shows the collector's own configuration (zip code, radius, letterboxd username, last run) as read-only facts, since the collector owns them, plus every tracked cinema with a toggle for tracked and favourite.
+- **setup** shows the collector's own configuration (zip code, radius, letterboxd username, last run) as read-only facts, since the collector owns them, plus every cinema it found with a toggle for tracked and favourite.
 - **watchlist** shows how many films are on the watchlist, how many resolved to a tmdb film, and lists the ones that did not, usually television.
 - **matches** is the queue of cinema listings the collector could not match with confidence on its own. each one shows the candidates side by side so you can pick the right film or reject the listing.
 - **digest** lists every digest email ever sent, newest first, and opens into the exact email that went out.
 
+to run it locally: `cd web && npm install && npm run dev`, with `DATABASE_URL` and `SORTIE_PASSWORD` set in `web/.env.local`. any postgres url works, not just neon's.
+
 it deploys to vercel from the `web` directory. vercel needs two environment variables: `DATABASE_URL`, set to the neon **pooled** connection string (its host contains `-pooler`) using the plain `postgresql://` scheme rather than the `postgresql+psycopg://` scheme the python side uses, and `SORTIE_PASSWORD`, set to a password of your choice.
 
-the deployment is public, so the whole site sits behind that one password. every request without it gets a basic auth prompt instead of a page.
+the deployment is public, so the whole site sits behind that one password. every request without it gets a basic auth prompt instead of a page. pick a password that is long, random and plain ascii: there is no rate limit on attempts, and non-ascii characters break the basic auth decode.
 
 ## a note on data sources
 
