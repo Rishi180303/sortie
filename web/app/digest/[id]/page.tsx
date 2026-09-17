@@ -8,7 +8,7 @@ type DigestRow = { id: number; sent_at: Date; subject: string; html_body: string
 export default async function DigestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const digestId = Number(id);
-  if (!Number.isInteger(digestId)) notFound();
+  if (!Number.isInteger(digestId) || digestId < 1 || digestId > 2147483647) notFound();
 
   const rows = await query<DigestRow>(
     "select id, sent_at, subject, html_body from digest where id = $1",
