@@ -26,7 +26,7 @@ It also tells you when an older film comes back to a screen near you. It only em
 
 ## status
 
-The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web page for picking favourite theatres has not been built yet. For now you mark a theatre as a favourite with a direct sql update, see "running it" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
+The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web ui now covers setup, the watchlist, the match queue, and digest history, see "the web ui" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
 
 ## how it matches films
 
@@ -109,11 +109,20 @@ uv run sortie schedule           # run once a day at [alerts].send_hour, the old
 uv run sortie serve              # start a small api with a /health endpoint
 ```
 
-run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. there is no page yet for picking favourite theatres, so mark one directly in postgres:
+run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. pick favourites and toggle which cinemas are tracked from the setup screen in the web ui.
 
-```sql
-update theatre set is_favourite = true where name = 'AMC Metro 14';
-```
+## the web ui
+
+the `web` folder is a small next.js app that reads the same database the collector writes to. four screens:
+
+- **setup** shows the collector's own configuration (zip code, radius, letterboxd username, last run) as read-only facts, since the collector owns them, plus every tracked cinema with a toggle for tracked and favourite.
+- **watchlist** shows how many films are on the watchlist, how many resolved to a tmdb film, and lists the ones that did not, usually television.
+- **matches** is the queue of cinema listings the collector could not match with confidence on its own. each one shows the candidates side by side so you can pick the right film or reject the listing.
+- **digest** lists every digest email ever sent, newest first, and opens into the exact email that went out.
+
+it deploys to vercel from the `web` directory. vercel needs two environment variables: `DATABASE_URL`, set to the neon **pooled** connection string (its host contains `-pooler`) using the plain `postgresql://` scheme rather than the `postgresql+psycopg://` scheme the python side uses, and `SORTIE_PASSWORD`, set to a password of your choice.
+
+the deployment is public, so the whole site sits behind that one password. every request without it gets a basic auth prompt instead of a page.
 
 ## a note on data sources
 
@@ -128,4 +137,4 @@ uv run pytest -q
 
 ## built with
 
-Python 3.12, SQLAlchemy and Alembic on Postgres, curl_cffi for fetching, FastAPI for a small health API, Resend for email, pytest, ruff, GitHub Actions. The web UI will be Next.js.
+Python 3.12, SQLAlchemy and Alembic on Postgres, curl_cffi for fetching, FastAPI for a small health API, Resend for email, pytest, ruff, GitHub Actions. The web UI is Next.js.
