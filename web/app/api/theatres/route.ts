@@ -26,16 +26,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "isFavourite must be a boolean" }, { status: 400 });
   }
 
-  const existing = await query<{ id: number }>("select id from theatre where id = $1", [id]);
-  if (existing.length === 0) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
+  try {
+    const existing = await query<{ id: number }>("select id from theatre where id = $1", [id]);
+    if (existing.length === 0) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
 
-  if (body.tracked !== undefined) {
-    await query("update theatre set tracked = $1 where id = $2", [body.tracked, id]);
+    if (body.tracked !== undefined) {
+      await query("update theatre set tracked = $1 where id = $2", [body.tracked, id]);
+    }
+    if (body.isFavourite !== undefined) {
+      await query("update theatre set is_favourite = $1 where id = $2", [body.isFavourite, id]);
+    }
+    return NextResponse.json({ ok: true });
+  } catch {
+    // a db-level failure (out-of-range int, etc), never leak the db's own error text
+    return NextResponse.json({ error: "something went wrong" }, { status: 500 });
   }
-  if (body.isFavourite !== undefined) {
-    await query("update theatre set is_favourite = $1 where id = $2", [body.isFavourite, id]);
-  }
-  return NextResponse.json({ ok: true });
 }
