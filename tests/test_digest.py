@@ -146,7 +146,7 @@ def test_render_text_contains_release_map(db):
     assert "1 film needs your input" in txt
     assert "fandango: 4 theatres" in txt
     html = render_html(d)
-    assert "PRIMETIME" in html and "Landmark Midtown" in html
+    assert "Primetime" in html and "Landmark Midtown" in html
 
 
 def test_subject_and_emptiness(db):
@@ -171,12 +171,13 @@ def one(e, needs_input=0, health=(), failures=()):
     return Digest(TODAY, (e,), (), (), needs_input, tuple(health), tuple(failures))
 
 
-def test_html_stars_your_own_theatres():
+def test_html_marks_favourite_cinema_with_a_diamond():
     fav = TheatreLine("Harkins Tempe Marketplace 16", 2.0, date(2026, 10, 20), True)
     e = FilmEntry(1, "The Lost Boys", 1987, ("new_anywhere",), fav, fav, ())
     html = render_html(one(e))
-    assert "THE LOST BOYS" in html and "1987" in html
-    assert "&#9733;" in html and "Harkins Tempe Marketplace 16" in html
+    assert "The Lost Boys" in html and "1987" in html
+    assert "&#9670;" in html and "Harkins Tempe Marketplace 16" in html
+    assert "&#9733;" not in html  # the old star marker is gone
     assert "Tue 20 Oct" in html
     assert "<pre" not in html
 
@@ -185,8 +186,8 @@ def test_html_says_when_a_film_is_not_at_your_theatres():
     far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(2, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
     html = render_html(one(e))
-    assert "Not at your theatres. The nearest is 10 mi." in html
-    assert "&#9733;" not in html
+    assert "Not at your theatres" in html and "nearest 10 mi" in html
+    assert "&#9670;" not in html  # no favourite here, so no diamond either
 
 
 def test_html_shows_how_much_later_your_theatre_gets_it():
@@ -212,8 +213,8 @@ def test_html_keeps_failures_at_the_end_under_a_notice_at_the_top():
     far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(5, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
     html = render_html(one(e, health=["fandango: 4 theatres"], failures=["watchlist sync: boom"]))
-    assert html.index("1 error today") < html.index("POLTERGEIST")
-    assert html.index("watchlist sync: boom") > html.index("POLTERGEIST")
+    assert html.index("1 error today") < html.index("Poltergeist")
+    assert html.index("watchlist sync: boom") > html.index("Poltergeist")
     assert "fandango: 4 theatres" in html
 
 
@@ -221,4 +222,14 @@ def test_html_escapes_a_title():
     far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(6, "Dungeons & Dragons", 2023, ("new_anywhere",), far, None, ())
     html = render_html(one(e))
-    assert "DUNGEONS &amp; DRAGONS" in html
+    assert "Dungeons &amp; Dragons" in html
+    assert "Dungeons & Dragons" not in html  # never left unescaped
+
+
+def test_html_has_no_style_block_or_class_attributes():
+    # mail clients strip <style> blocks and often drop classes; everything must be inline
+    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    e = FilmEntry(7, "Wildwood", 2026, ("new_anywhere",), far, far, ())
+    html = render_html(one(e))
+    assert "<style" not in html
+    assert "class=" not in html

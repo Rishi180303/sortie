@@ -226,115 +226,150 @@ def render_text(d: Digest) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-# the html digest is set like a repertory programme: one serif, red for his own
-# theatres and for anything that went wrong, no boxes
-SERIF = "Georgia,'Times New Roman',serif"
-RED = "#a3111f"
-GREY = "#666666"
-PAGE = (
-    f"max-width:540px;margin:0 auto;font-family:{SERIF};color:#000;font-size:15px;line-height:1.55"
-)
-TITLE = "font-size:21px;font-weight:bold;letter-spacing:0.02em;line-height:1.2"
-KINDS = f"font-style:italic;color:{GREY};font-size:14px;margin:3px 0 8px"
-SECTION = "margin:40px 0 14px;font-style:italic;font-size:17px"
-FOOT = f"margin-top:44px;padding-top:14px;border-top:1px solid #ddd;font-size:13px;color:{GREY}"
+# the html digest follows the visual direction approved 2026-09-16: rifle green
+# ground, one orange accent, a heavy system font since mail clients strip web fonts
+FONT = "'Helvetica Neue',Arial,sans-serif"
+GREEN = "#3b4134"
+ORANGE = "#e2562c"
+SNOW = "#f2f0eb"
+SAGE = "#9aa08c"
+LINE = "#575e4b"
+
+
+def _paint(colour: str, extra: str = "") -> str:
+    # every element carries its own background and text colour, inline, so a
+    # mail client's dark mode can't override one and leave the other unreadable
+    style = f"background:{GREEN};color:{colour}"
+    return f"{style};{extra}" if extra else style
 
 
 def _html_date(d: date) -> str:
     return d.strftime("%a %d %b").replace(" 0", " ")
 
 
-def _long_date(d: date) -> str:
-    return d.strftime("%A %d %B").replace(" 0", " ")
-
-
 def _theatre(ln: TheatreLine) -> str:
-    # a star marks one of his own theatres
+    # a diamond marks one of his own cinemas
     if ln.is_favourite:
-        return f'<span style="color:{RED}">&#9733;</span> {_html.escape(ln.name)}'
+        return f'<span style="color:{ORANGE}">&#9670;</span> {_html.escape(ln.name)}'
     return _html.escape(ln.name)
 
 
 def _with_miles(ln: TheatreLine) -> str:
     miles = _mi(ln.distance_miles)
-    return f"{_theatre(ln)}, {miles}" if miles else _theatre(ln)
+    return f"{_theatre(ln)} &middot; {miles}" if miles else _theatre(ln)
+
+
+def _sprocket(height: int) -> str:
+    # film perforations, the cinema motif. css masks do not survive mail clients,
+    # so stripe alternating table cells instead, which every client can render
+    cells = "".join(
+        f'<td width="5%" style="background:{ORANGE if i % 2 == 0 else GREEN};'
+        f'height:{height}px;font-size:1px;line-height:1px">&nbsp;</td>'
+        for i in range(20)
+    )
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="margin:20px 0"><tr>{cells}</tr></table>'
+    )
 
 
 def _html_entry(e: FilmEntry) -> list[str]:
     year = ""
     if e.year:
-        year = f' <span style="font-weight:normal;letter-spacing:0;color:{GREY}">{e.year}</span>'
-    kinds = ", ".join(KIND_LABEL[k] for k in e.kinds)
+        year = f' <span style="color:{SAGE};font-size:13px;font-weight:400">{e.year}</span>'
+    title_style = _paint(SNOW, "font-weight:700;font-size:21px;line-height:1.15;margin:16px 0 0")
+    line_style = _paint(SNOW, "font-size:14px;margin:5px 0 0")
+    dim_style = _paint(SAGE, "font-size:14px;margin:5px 0 0")
+
     out = [
-        f'<div style="{TITLE}">{_html.escape(e.title.upper())}{year}</div>',
-        f'<div style="{KINDS}">{_html.escape(kinds.capitalize())}</div>',
-        f"<div><b>{_html_date(e.earliest.date)}</b> at {_with_miles(e.earliest)}.</div>",
+        f'<div style="{title_style}">{_html.escape(e.title)}{year}</div>',
+        f'<div style="{line_style}"><b>{_html_date(e.earliest.date)}</b> &middot; '
+        f"{_with_miles(e.earliest)}</div>",
     ]
 
     if e.at_fav is None:
         nearest = _mi(e.earliest.distance_miles) or "unknown"
-        out.append(f"<div>Not at your theatres. The nearest is {nearest}.</div>")
+        out.append(
+            f'<div style="{dim_style}">Not at your theatres &middot; nearest {nearest}</div>'
+        )
     elif e.at_fav != e.earliest:
         gap = (e.at_fav.date - e.earliest.date).days
-        later = f", {gap} day{'s' if gap != 1 else ''} later" if gap > 0 else ""
-        out.append(f"<div><b>{_html_date(e.at_fav.date)}</b> at {_theatre(e.at_fav)}{later}.</div>")
+        later = f" &middot; {gap} day{'s' if gap != 1 else ''} later" if gap > 0 else ""
+        out.append(
+            f'<div style="{line_style}"><b>{_html_date(e.at_fav.date)}</b> &middot; '
+            f"{_theatre(e.at_fav)}{later}</div>"
+        )
 
     if e.others:
         # name the three nearest and count the rest, a chain-wide event lists nine
         bits = []
         for o in e.others[:3]:
-            bit = f"{_short_date(o.date)} at {_theatre(o)}"
+            bit = f"{_short_date(o.date)} {_theatre(o)}"
             if o.distance_miles is not None:
                 bit += f" ({_mi(o.distance_miles)})"
             bits.append(bit)
         rest = len(e.others) - 3
         if rest > 0:
             bits.append(f"and {rest} more")
-        out.append(f'<div style="color:#444">Also {", ".join(bits)}.</div>')
+        out.append(f'<div style="{dim_style}">Also {", ".join(bits)}</div>')
     return out
 
 
 def render_html(d: Digest) -> str:
+    n = _count(d)
+    subtitle = f"{_html_date(d.today)} &middot; {n} film{'s' if n != 1 else ''}"
+
+    wordmark_style = _paint(ORANGE, "font-weight:800;font-size:26px;letter-spacing:-.02em")
+    subtitle_style = _paint(
+        SAGE, "font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin:4px 0 0"
+    )
+    page_style = _paint(SNOW, f"font-family:{FONT};font-size:15px;line-height:1.5")
+    label_style = _paint(
+        ORANGE,
+        "font-weight:800;font-size:11px;letter-spacing:.2em;"
+        "text-transform:uppercase;margin:26px 0 10px",
+    )
+
     out = [
-        f'<div style="{PAGE}">',
-        '<table width="100%" cellpadding="0" cellspacing="0"'
-        f' style="border-collapse:collapse;border-bottom:2px solid {RED}">',
-        '<tr><td style="font-size:30px;font-style:italic;padding:0 0 6px;'
-        'line-height:1">Sortie</td>',
-        f'<td align="right" style="font-size:14px;color:{GREY};padding:0 0 8px;'
-        f'vertical-align:bottom">{_long_date(d.today)}</td></tr></table>',
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'bgcolor="{GREEN}" style="background:{GREEN}"><tr>'
+        f'<td align="center" style="background:{GREEN};padding:28px 16px">',
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="max-width:560px;background:{GREEN}"><tr><td style="{page_style}">',
+        f'<div style="{wordmark_style}">sortie</div>',
+        f'<div style="{subtitle_style}">{subtitle}</div>',
     ]
+
     if d.failures:
-        n = len(d.failures)
-        out.append(
-            f'<p style="margin:14px 0 0;color:{RED};font-size:14px">'
-            f"{n} error{'s' if n != 1 else ''} today. Details at the end.</p>"
-        )
+        k = len(d.failures)
+        notice_style = _paint(SNOW, "font-weight:700;font-size:14px;margin:14px 0 0")
+        out.append(f'<div style="{notice_style}">{k} error{"s" if k != 1 else ""} today</div>')
+
+    out.append(_sprocket(16))
 
     for title, entries in (
         ("From your watchlist", d.watchlist),
-        ("Re-releases near you", d.rereleases),
+        ("Re-releases", d.rereleases),
         ("Showing soon", d.soon),
     ):
         if entries:
-            out.append(f'<p style="{SECTION}">{title}</p>')
+            out.append(f'<div style="{label_style}">{title}</div>')
             for e in entries:
-                out.append('<div style="margin:0 0 26px">')
                 out += _html_entry(e)
-                out.append("</div>")
 
-    out.append(f'<div style="{FOOT}">')
+    parts: list[str] = []
     if d.needs_input:
-        n = d.needs_input
-        out.append(
-            f'<p style="margin:0 0 12px;color:#000;font-size:14px">'
-            f"{n} film{'s' if n != 1 else ''} waiting in the match queue.</p>"
-        )
+        m = d.needs_input
+        parts.append(f"{m} film{'s' if m != 1 else ''} waiting on you")
     if d.failures:
-        body = "<br>".join(_html.escape(f) for f in d.failures)
-        out.append(f'<p style="margin:0 0 12px;color:{RED}">{body}</p>')
+        parts.append("<br>".join(_html.escape(f) for f in d.failures))
     if d.health:
-        body = "<br>".join(_html.escape(h) for h in d.health)
-        out.append(f'<p style="margin:0">{body}</p>')
-    out.append("</div></div>")
+        parts.append("<br>".join(_html.escape(h) for h in d.health))
+    if parts:
+        foot_style = _paint(
+            SAGE, f"font-size:12px;margin:26px 0 0;padding:12px 0 0;border-top:1px solid {LINE}"
+        )
+        out.append(f'<div style="{foot_style}">{"<br>".join(parts)}</div>')
+
+    out.append("</td></tr></table></td></tr></table>")
     return "".join(out)
