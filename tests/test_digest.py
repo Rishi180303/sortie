@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, date, datetime
 
 from sortie.alerts.diff import Alert
@@ -219,11 +220,19 @@ def test_html_keeps_failures_at_the_end_under_a_notice_at_the_top():
 
 
 def test_html_escapes_a_title():
-    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    far = TheatreLine("Regal & Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(6, "Dungeons & Dragons", 2023, ("new_anywhere",), far, None, ())
-    html = render_html(one(e))
+    html = render_html(
+        one(e, health=["fandango: 4 & theatres"], failures=["watchlist sync: boom & bust"])
+    )
     assert "Dungeons &amp; Dragons" in html
     assert "Dungeons & Dragons" not in html  # never left unescaped
+    assert "Regal &amp; Gilbert" in html  # theatre name
+    assert "Regal & Gilbert" not in html
+    assert "watchlist sync: boom &amp; bust" in html  # failure string
+    assert "watchlist sync: boom & bust" not in html
+    assert "fandango: 4 &amp; theatres" in html  # health string
+    assert "fandango: 4 & theatres" not in html
 
 
 def test_html_has_no_style_block_or_class_attributes():
@@ -241,11 +250,9 @@ def test_html_every_coloured_span_has_both_color_and_background():
     e = FilmEntry(8, "The Lost Boys", 1987, ("new_anywhere",), fav, fav, ())
     html = render_html(one(e))
     # extract all inline style attributes
-    import re
-
     styles = re.findall(r'style="([^"]*)"', html)
     bad_styles = []
     for style in styles:
         if "color:" in style and "background:" not in style:
             bad_styles.append(style)
-    assert not bad_styles, f"styles have color but no background: {bad_styles}"  # noqa: E501
+    assert not bad_styles, f"styles have color but no background: {bad_styles}"
