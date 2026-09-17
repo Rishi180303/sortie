@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { transaction } from "@/lib/db";
+import { isId, transaction } from "@/lib/db";
 
 export async function POST(req: Request) {
-  // require real json so a cross-origin form post (text/plain, no preflight) can't land here
+  // require real json so a cross-origin form post (text/plain, no preflight) can't land here.
+  // compare the essence only: "text/plain; application/json" is still text/plain
   const contentType = req.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
+  if (contentType.split(";")[0].trim().toLowerCase() !== "application/json") {
     return NextResponse.json({ error: "content-type must be application/json" }, { status: 400 });
   }
 
@@ -14,14 +15,22 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "body must be json" }, { status: 400 });
   }
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "body must be an object" }, { status: 400 });
+  }
 
-  const queueId = Number(body.queueId);
-  if (!Number.isInteger(queueId)) {
+  const queueId = body.queueId;
+  if (!isId(queueId)) {
     return NextResponse.json({ error: "queueId is required" }, { status: 400 });
   }
 
-  const tmdbId = body.tmdbId === null ? null : Number(body.tmdbId);
-  if (tmdbId !== null && !Number.isInteger(tmdbId)) {
+  const rawTmdbId = body.tmdbId;
+  let tmdbId: number | null;
+  if (rawTmdbId === null) {
+    tmdbId = null;
+  } else if (isId(rawTmdbId)) {
+    tmdbId = rawTmdbId;
+  } else {
     return NextResponse.json({ error: "tmdbId must be a number or null" }, { status: 400 });
   }
 
@@ -54,8 +63,9 @@ export async function POST(req: Request) {
       await client.query("update match_queue set resolved_at = now() where id = $1", [queueId]);
       return "resolved";
     });
-  } catch {
-    // a db-level failure (bad id, out-of-range int, etc), never leak the db's own error text
+  } catch (err) {
+    // ids are validated above, so this is a real db fault, log it but never leak its text
+    console.error(err);
     return NextResponse.json({ error: "something went wrong" }, { status: 500 });
   }
 

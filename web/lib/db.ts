@@ -14,6 +14,15 @@ const pool =
 
 if (!globalForPool.pool) globalForPool.pool = pool;
 
+// true only for an int postgres can store in an int4 column (max is 2^31 - 1)
+export function isId(v: unknown): v is number {
+  if (typeof v !== "number") return false;
+  if (!Number.isInteger(v)) return false;
+  if (v < 1) return false;
+  if (v > 2147483647) return false;
+  return true;
+}
+
 export async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   const result = await pool.query(sql, params);
   return result.rows as T[];

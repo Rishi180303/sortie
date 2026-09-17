@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { isId, query } from "@/lib/db";
 
 export async function POST(req: Request) {
-  // require real json so a cross-origin form post (text/plain, no preflight) can't land here
+  // require real json so a cross-origin form post (text/plain, no preflight) can't land here.
+  // compare the essence only: "text/plain; application/json" is still text/plain.
+  // ponytail: this is a header parse, not a full sec-fetch-site check; add one if a
+  // second bypass shows up, but one mechanism done right beats stacking half-measures
   const contentType = req.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
+  if (contentType.split(";")[0].trim().toLowerCase() !== "application/json") {
     return NextResponse.json({ error: "content-type must be application/json" }, { status: 400 });
   }
 
@@ -14,9 +17,12 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "body must be json" }, { status: 400 });
   }
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "body must be an object" }, { status: 400 });
+  }
 
-  const id = Number(body.id);
-  if (!Number.isInteger(id)) {
+  const id = body.id;
+  if (!isId(id)) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
   if (body.tracked !== undefined && typeof body.tracked !== "boolean") {
@@ -39,8 +45,9 @@ export async function POST(req: Request) {
       await query("update theatre set is_favourite = $1 where id = $2", [body.isFavourite, id]);
     }
     return NextResponse.json({ ok: true });
-  } catch {
-    // a db-level failure (out-of-range int, etc), never leak the db's own error text
+  } catch (err) {
+    // id is validated above, so this is a real db fault, log it but never leak its text
+    console.error(err);
     return NextResponse.json({ error: "something went wrong" }, { status: 500 });
   }
 }
