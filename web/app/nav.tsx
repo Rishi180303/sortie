@@ -15,7 +15,9 @@ export function Nav() {
   return (
     <nav className="flex flex-wrap gap-6 pt-2 pb-6">
       {links.map((link) => {
-        const active = pathname === link.href;
+        // startsWith so /digest/12 still lights up Digest; none of our hrefs are
+        // "/" so this can't accidentally match every page
+        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
           <Link
             key={link.href}
