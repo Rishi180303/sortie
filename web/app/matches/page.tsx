@@ -59,8 +59,10 @@ export default async function MatchesPage() {
               </div>
               <div className="mt-1.5 text-[13px] text-sage">{listingFacts(row)}</div>
               {row.film_url && (
+                // ponytail: fandango is the only source today so film_url is always a fandango
+                // path; a second source will need to carry its own host alongside the path
                 <a
-                  href={row.film_url}
+                  href={new URL(row.film_url, "https://www.fandango.com").href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 inline-block text-[13px] text-sage underline hover:text-orange"
