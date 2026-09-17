@@ -233,3 +233,19 @@ def test_html_has_no_style_block_or_class_attributes():
     html = render_html(one(e))
     assert "<style" not in html
     assert "class=" not in html
+
+
+def test_html_every_coloured_span_has_both_color_and_background():
+    # mail clients may drop color or background; both must be set together to survive dark mode
+    fav = TheatreLine("AMC Metro 14", 2.0, date(2026, 10, 20), True)
+    e = FilmEntry(8, "The Lost Boys", 1987, ("new_anywhere",), fav, fav, ())
+    html = render_html(one(e))
+    # extract all inline style attributes
+    import re
+
+    styles = re.findall(r'style="([^"]*)"', html)
+    bad_styles = []
+    for style in styles:
+        if "color:" in style and "background:" not in style:
+            bad_styles.append(style)
+    assert not bad_styles, f"styles have color but no background: {bad_styles}"  # noqa: E501

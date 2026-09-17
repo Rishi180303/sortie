@@ -250,7 +250,8 @@ def _html_date(d: date) -> str:
 def _theatre(ln: TheatreLine) -> str:
     # a diamond marks one of his own cinemas
     if ln.is_favourite:
-        return f'<span style="color:{ORANGE}">&#9670;</span> {_html.escape(ln.name)}'
+        diamond_style = _paint(ORANGE)
+        return f'<span style="{diamond_style}">&#9670;</span> {_html.escape(ln.name)}'
     return _html.escape(ln.name)
 
 
@@ -276,7 +277,7 @@ def _sprocket(height: int) -> str:
 def _html_entry(e: FilmEntry) -> list[str]:
     year = ""
     if e.year:
-        year = f' <span style="color:{SAGE};font-size:13px;font-weight:400">{e.year}</span>'
+        year = f' <span style="{_paint(SAGE, "font-size:13px;font-weight:400")}">{e.year}</span>'
     title_style = _paint(SNOW, "font-weight:700;font-size:21px;line-height:1.15;margin:16px 0 0")
     line_style = _paint(SNOW, "font-size:14px;margin:5px 0 0")
     dim_style = _paint(SAGE, "font-size:14px;margin:5px 0 0")
