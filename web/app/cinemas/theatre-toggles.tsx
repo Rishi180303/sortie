@@ -9,7 +9,6 @@ type Theatre = {
   distance_miles: number | null;
   tracked: boolean;
   is_favourite: boolean;
-  upcoming: number;
 };
 
 export function TheatreToggle({ theatre }: { theatre: Theatre }) {
@@ -41,7 +40,7 @@ export function TheatreToggle({ theatre }: { theatre: Theatre }) {
   }
 
   return (
-    <div className="border-t border-line py-4 hover:bg-green-2">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line py-4 hover:bg-green-2">
       <div className="font-display text-lg font-bold">
         <button
           type="button"
@@ -54,7 +53,7 @@ export function TheatreToggle({ theatre }: { theatre: Theatre }) {
         </button>
         {theatre.name}
       </div>
-      <div className="num mt-1 text-[13px] text-sage">
+      <div className="num text-[13px] text-sage">
         {theatre.distance_miles !== null ? `${Math.round(theatre.distance_miles)} mi` : "unknown"}
         {" · "}
         <button
@@ -65,8 +64,6 @@ export function TheatreToggle({ theatre }: { theatre: Theatre }) {
         >
           {theatre.tracked ? "tracked" : "not tracked"}
         </button>
-        {" · ~56 req/day · "}
-        {theatre.upcoming} upcoming
         {error && <span className="ml-2">{error}</span>}
       </div>
     </div>
