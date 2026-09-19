@@ -21,10 +21,6 @@
   mask: repeating-linear-gradient(to right, #000 0 14px, transparent 14px 30px);
   opacity: 0.9;
 }
-.sprocket.thin {
-  height: 10px;
-  opacity: 0.5;
-}
 
 /* line up digits wherever numbers sit in a column */
 .num {

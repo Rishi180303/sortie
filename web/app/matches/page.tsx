@@ -51,8 +51,8 @@ export default async function MatchesPage() {
               <summary className="flex flex-wrap list-none cursor-pointer items-baseline justify-between gap-x-4 gap-y-1 py-[22px] hover:bg-green-2 [&::-webkit-details-marker]:hidden">
                 <span className="flex min-w-0 items-baseline gap-2 font-display text-[17px] font-bold tracking-tight">
                   <span className="w-4 shrink-0 text-sage">
-                    <span className="group-open:hidden">▸</span>
-                    <span className="hidden group-open:inline">▾</span>
+                    <span className="group-open:hidden" aria-hidden="true">▸</span>
+                    <span className="hidden group-open:inline" aria-hidden="true">▾</span>
                   </span>
                   {row.raw_title}
                 </span>
