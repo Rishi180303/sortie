@@ -4,10 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/setup", label: "Setup" },
-  { href: "/watchlist", label: "Watchlist" },
   { href: "/matches", label: "Matches" },
-  { href: "/digest", label: "Digest" },
+  { href: "/cinemas", label: "Cinemas" },
 ];
 
 export function Nav() {
@@ -15,7 +13,7 @@ export function Nav() {
   return (
     <nav className="flex flex-wrap gap-6 pt-2 pb-6">
       {links.map((link) => {
-        // startsWith so /digest/12 still lights up Digest; none of our hrefs are
+        // startsWith so a sub-route still lights up its tab; neither href is
         // "/" so this can't accidentally match every page
         const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
