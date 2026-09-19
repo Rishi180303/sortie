@@ -38,14 +38,8 @@ export default async function MatchesPage() {
 
   return (
     <main>
-      <div className="grid grid-cols-1 gap-6 pt-6 pb-8">
-        <Stat value={rows.length} label="Need a decision" accent />
-      </div>
-
-      <div className="sprocket thin" />
-
-      <h2 className="mt-11 mb-4 font-display text-[13px] font-extrabold tracking-[.2em] text-orange uppercase">
-        Matches
+      <h2 className="pt-6 mb-4 font-display text-[13px] font-extrabold tracking-[.2em] text-orange uppercase">
+        Matches <span className="num text-sage">{rows.length}</span>
       </h2>
 
       {rows.length === 0 ? (
@@ -53,25 +47,33 @@ export default async function MatchesPage() {
       ) : (
         <div>
           {rows.map((row) => (
-            <div key={row.id} className="border-t border-line py-[22px]">
-              <div className="font-display text-[clamp(22px,3.2vw,30px)] leading-[1.05] font-bold tracking-tight">
-                {row.raw_title}
+            <details key={row.id} className="group border-t border-line">
+              <summary className="flex list-none cursor-pointer items-baseline justify-between gap-4 py-[22px] hover:bg-green-2 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-baseline gap-2 font-display text-[17px] font-bold tracking-tight">
+                  <span className="text-sage">
+                    <span className="group-open:hidden">▸</span>
+                    <span className="hidden group-open:inline">▾</span>
+                  </span>
+                  {row.raw_title}
+                </span>
+                <span className="shrink-0 text-[13px] text-sage">{listingFacts(row)}</span>
+              </summary>
+              <div className="pb-[22px] pl-6">
+                {row.film_url && (
+                  // ponytail: fandango is the only source today so film_url is always a fandango
+                  // path; a second source will need to carry its own host alongside the path
+                  <a
+                    href={new URL(row.film_url, "https://www.fandango.com").href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block text-[13px] text-sage underline hover:text-orange"
+                  >
+                    View listing
+                  </a>
+                )}
+                <CandidateForm queueId={row.id} candidates={row.candidates} />
               </div>
-              <div className="mt-1.5 text-[13px] text-sage">{listingFacts(row)}</div>
-              {row.film_url && (
-                // ponytail: fandango is the only source today so film_url is always a fandango
-                // path; a second source will need to carry its own host alongside the path
-                <a
-                  href={new URL(row.film_url, "https://www.fandango.com").href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[13px] text-sage underline hover:text-orange"
-                >
-                  View listing
-                </a>
-              )}
-              <CandidateForm queueId={row.id} candidates={row.candidates} />
-            </div>
+            </details>
           ))}
         </div>
       )}
@@ -88,19 +90,4 @@ function listingFacts(row: QueueRow) {
   ]
     .filter(Boolean)
     .join(" · ");
-}
-
-function Stat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
-  return (
-    <div>
-      <div
-        className={`num font-display text-[clamp(40px,7vw,68px)] leading-[0.9] font-extrabold tracking-tight ${
-          accent ? "text-orange" : ""
-        }`}
-      >
-        {value.toLocaleString()}
-      </div>
-      <div className="mt-2 text-[12px] tracking-[.14em] text-sage uppercase">{label}</div>
-    </div>
-  );
 }
