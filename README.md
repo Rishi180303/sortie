@@ -26,7 +26,7 @@ It also tells you when an older film comes back to a screen near you. It only em
 
 ## status
 
-The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web ui now covers setup, the watchlist, the match queue, and digest history, see "the web ui" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
+The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web ui now covers the match queue and cinema tracking, see "the web ui" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
 
 ## how it matches films
 
@@ -109,7 +109,7 @@ uv run sortie schedule           # run once a day at [alerts].send_hour, the old
 uv run sortie serve              # start a small api with a /health endpoint
 ```
 
-run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. pick favourites and toggle which cinemas are tracked from the setup screen in the web ui. if you are not running the web ui, mark a favourite directly in postgres instead:
+run `refresh-theatres` once before your first `run`. after that, `run` refreshes theatres on its own every 30 days. pick favourites and toggle which cinemas are tracked from the cinemas screen in the web ui. if you are not running the web ui, mark a favourite directly in postgres instead:
 
 ```sql
 update theatre set is_favourite = true where name = 'AMC Metro 14';
@@ -117,12 +117,10 @@ update theatre set is_favourite = true where name = 'AMC Metro 14';
 
 ## the web ui
 
-the `web` folder is a small next.js app that reads the same database the collector writes to. four screens:
+the `web` folder is a small next.js app that reads the same database the collector writes to. two screens:
 
-- **setup** shows the collector's own configuration (zip code, radius, letterboxd username, last run) as read-only facts, since the collector owns them, plus every cinema it found with a toggle for tracked and favourite.
-- **watchlist** shows how many films are on the watchlist, how many resolved to a tmdb film, and lists the ones that did not, usually television.
-- **matches** is the queue of cinema listings the collector could not match with confidence on its own. each one shows the candidates side by side so you can pick the right film or reject the listing.
-- **digest** lists every digest email ever sent, newest first, and opens into the exact email that went out.
+- matches is the queue of cinema listings the collector could not match with confidence on its own. each one shows the candidates side by side so you can pick the right film or reject the listing.
+- cinemas lists every cinema the collector found, with a toggle for tracked and favourite, and the distance to each one.
 
 to run it locally: `cd web && npm install && npm run dev`, with `DATABASE_URL` and `SORTIE_PASSWORD` set in `web/.env.local`. any postgres url works, not just neon's.
 
