@@ -13,14 +13,9 @@ Every morning it:
 3. works out which watchlist films are playing, where, and from what date
 4. emails you one digest
 
-A film in the email looks like this:
+The email looks like this (sample data):
 
-```
-PRIMETIME
-  Earliest anywhere   Fri Sep 25  ·  Landmark Midtown         18 mi
-  Your theatres       Wed Sep 30  ·  AMC Metro 14
-  ↳ 5 days earlier if you drive
-```
+![the sortie digest email: new films from the watchlist, re-releases, and what is showing soon, each with the earliest date and cinema](docs/digest-email.png)
 
 It also tells you when an older film comes back to a screen near you. It only emails when something changed, and if it breaks it emails you right away, so a quiet day really is a quiet day.
 
