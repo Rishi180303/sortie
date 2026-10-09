@@ -60,13 +60,14 @@ def test_second_sweep_updates_last_seen_without_new_films(db):
     assert s.first_seen == NOW and s.last_seen == later
 
 
-def test_zero_results_after_recent_showings_is_a_failure(db):
+def test_zero_results_after_recent_showings_is_not_a_failure(db):
+    # a cinema with nothing listed today is not an error, its old rows just stay
     seed_theatres(db, "zz001")
     sweep_showtimes(db, FakeSource(showings={"zz001": [S1]}), NOW, TODAY)
     later_now = NOW + timedelta(hours=24)
     later_today = TODAY + timedelta(days=1)
     r = sweep_showtimes(db, FakeSource(showings={"zz001": []}), later_now, later_today)
-    assert len(r.failures) == 1 and "0" in r.failures[0]
+    assert r.failures == [] and r.theatres == 1
     assert db.execute(select(Showing)).scalar_one().last_seen == NOW  # untouched
 
 

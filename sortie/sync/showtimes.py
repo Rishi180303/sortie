@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -14,16 +14,6 @@ class SweepResult:
     source_films_new: int = 0
     showings_upserted: int = 0
     failures: list[str] = field(default_factory=list)
-
-
-def _had_recent_showings(db: Session, theatre_id: int, now: datetime) -> bool:
-    cutoff = now - timedelta(hours=48)
-    row = db.execute(
-        select(Showing.theatre_id)
-        .where(Showing.theatre_id == theatre_id, Showing.last_seen >= cutoff)
-        .limit(1)
-    ).first()
-    return row is not None
 
 
 def sweep_showtimes(db: Session, source: ShowtimeSource, now: datetime, today: date) -> SweepResult:
@@ -43,10 +33,7 @@ def sweep_showtimes(db: Session, source: ShowtimeSource, now: datetime, today: d
         res.theatres += 1
         infos = [i for i in infos if i.show_date >= today]
         if not infos:
-            if _had_recent_showings(db, t.id, now):
-                res.failures.append(
-                    f"{t.name}: returned 0 films but had showings within the last 48h"
-                )
+            # nothing listed today is not an error. keep what we already had
             continue
 
         for info in infos:

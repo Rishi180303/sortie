@@ -170,7 +170,14 @@ def test_fetch_failure_always_emails(engine, db):
     )
     m = Mailer()
     run_daily(factory(engine), CFG, SECRETS, runtime(src, m), today=TODAY, now=NOW)
-    broken = make_source({"far": []})  # zero results after history -> failure
+
+    class Broken(FakeSource):
+        def showings(self, source_theatre_id):
+            if source_theatre_id == "far":
+                raise ValueError("boom")
+            return super().showings(source_theatre_id)
+
+    broken = Broken(theatres=src.theatres, details=src.details_by_film)
     report = run_daily(
         factory(engine), CFG, SECRETS, runtime(broken, m), today=date(2026, 9, 9), now=NOW
     )
