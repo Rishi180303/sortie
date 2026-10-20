@@ -185,12 +185,13 @@ def test_fetch_failure_always_emails(engine, db):
     assert m.sent[-1][0].startswith("sortie: 1 fetch failure")
 
 
-def test_sunday_heartbeat(engine, db):
+def test_empty_sunday_sends_nothing(engine, db):
+    # no films and no failures means no email, even on a sunday
     m = Mailer()
     report = run_daily(
         factory(engine), CFG, SECRETS, runtime(make_source(), m), today=date(2026, 9, 13), now=NOW
     )
-    assert report.emailed is True and m.sent[0][0] == "sortie: weekly check-in"
+    assert report.emailed is False and m.sent == []
 
 
 def test_health_endpoint(engine, db, monkeypatch):

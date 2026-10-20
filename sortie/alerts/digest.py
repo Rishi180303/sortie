@@ -157,7 +157,7 @@ def subject(d: Digest) -> str:
     if d.failures:
         k = len(d.failures)
         return f"sortie: {k} fetch failure{'s' if k != 1 else ''}"
-    return "sortie: weekly check-in"
+    return "sortie: nothing new"  # never sent, an empty digest is skipped by the run
 
 
 def _fmt_date(d: date) -> str:

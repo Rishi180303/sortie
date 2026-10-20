@@ -155,7 +155,7 @@ def test_subject_and_emptiness(db):
     d = build_digest(db, {1: [Alert("new_anywhere", 1)]}, TODAY, 0, [], [])
     assert subject(d) == "sortie: 1 new film near you"
     e = build_digest(db, {}, TODAY, 0, [], [])
-    assert is_empty(e) and subject(e) == "sortie: weekly check-in"
+    assert is_empty(e) and subject(e) == "sortie: nothing new"
     f = build_digest(db, {}, TODAY, 0, [], ["Landmark Midtown: HTTP 403"])
     assert not is_empty(f) and subject(f) == "sortie: 1 fetch failure"
     assert "FAILURES" in render_text(f) and "HTTP 403" in render_text(f)

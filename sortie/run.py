@@ -286,8 +286,7 @@ def run_daily(
 
         # 9. build digest and send if there is something to say
         digest = build_digest(db, alerts, today, needs_input, report.health, report.failures)
-        heartbeat = today.weekday() == 6
-        if rt.mailer is not None and (not is_empty(digest) or heartbeat):
+        if rt.mailer is not None and not is_empty(digest):
             subj, text, html = subject(digest), render_text(digest), render_html(digest)
             rt.mailer(subj, text, html)
             report.emailed = True
