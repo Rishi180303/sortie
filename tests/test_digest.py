@@ -142,7 +142,7 @@ def test_render_text_contains_release_map(db):
         and "not playing at your favourites" in txt
         and "nearest is 18 mi" in txt
     )
-    assert "fandango" not in txt  # no health footer any more
+    assert "fandango" not in txt  # no health lines in the email
     html = render_html(d)
     assert "Primetime" in html and "Landmark Midtown" in html
 
@@ -216,7 +216,7 @@ def test_html_keeps_failures_at_the_end_under_a_notice_at_the_top():
 
 
 def test_html_has_no_footer_without_failures():
-    # the health lines and the queue count used to sit under a rule at the bottom. gone
+    # nothing under the last film unless something failed
     far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(5, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
     html = render_html(one(e))

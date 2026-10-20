@@ -345,8 +345,7 @@ def render_html(d: Digest) -> str:
             for e in entries:
                 out += _html_entry(e)
 
-    # the failure lines are the only thing left at the bottom. health lines and the
-    # queue count used to sit here too, rishi found them ugly
+    # the failure lines are the only thing at the bottom
     if d.failures:
         foot_style = _paint(
             SAGE, f"font-size:12px;margin:26px 0 0;padding:12px 0 0;border-top:1px solid {LINE}"

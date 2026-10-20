@@ -84,7 +84,7 @@ def build_runtime(cfg: Config, secrets: Secrets, archive_dir: Path = Path("raw")
 
 
 def _titles(names: list[str], limit: int = 5) -> str:
-    # a footer line naming 79 films is noise, so name a few and count the rest
+    # a health line naming 79 films is noise, so name a few and count the rest
     if len(names) <= limit:
         return ", ".join(names)
     return ", ".join(names[:limit]) + f", and {len(names) - limit} more"
@@ -236,7 +236,7 @@ def run_daily(
         )
 
         # old films that clear the age gap but never got a second signal alert nobody,
-        # so call them out in the health footer or they vanish without a trace
+        # so call them out in the run's health lines or they vanish without a trace
         flagged = (
             db.execute(
                 select(func.count())
