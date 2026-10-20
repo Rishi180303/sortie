@@ -43,8 +43,6 @@ class Digest:
     watchlist: tuple[FilmEntry, ...]
     rereleases: tuple[FilmEntry, ...]
     soon: tuple[FilmEntry, ...]
-    needs_input: int
-    health: tuple[str, ...]
     failures: tuple[str, ...]
 
 
@@ -114,8 +112,6 @@ def build_digest(
     db: Session,
     alerts: dict[int, list[Alert]],
     today: date,
-    needs_input: int,
-    health: list[str],
     failures: list[str],
 ) -> Digest:
     sections: dict[str, list[FilmEntry]] = defaultdict(list)
@@ -136,8 +132,6 @@ def build_digest(
         watchlist=tuple(sorted(sections["watchlist"], key=_sort_entry)),
         rereleases=tuple(sorted(sections["rereleases"], key=_sort_entry)),
         soon=tuple(sorted(sections["soon"], key=_sort_entry)),
-        needs_input=needs_input,
-        health=tuple(health),
         failures=tuple(failures),
     )
 
@@ -216,13 +210,6 @@ def render_text(d: Digest) -> str:
             lines.append(title)
             for e in entries:
                 lines += _render_entry(e) + [""]
-    if d.needs_input:
-        n = d.needs_input
-        film_s = "s" if n != 1 else ""
-        need_s = "s" if n == 1 else ""
-        lines += [f"{n} film{film_s} need{need_s} your input in the match queue.", ""]
-    if d.health:
-        lines += ["—", *(f"  {h}" for h in d.health)]
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -358,19 +345,14 @@ def render_html(d: Digest) -> str:
             for e in entries:
                 out += _html_entry(e)
 
-    parts: list[str] = []
-    if d.needs_input:
-        m = d.needs_input
-        parts.append(f"{m} film{'s' if m != 1 else ''} waiting on you")
+    # the failure lines are the only thing left at the bottom. health lines and the
+    # queue count used to sit here too, rishi found them ugly
     if d.failures:
-        parts.append("<br>".join(_html.escape(f) for f in d.failures))
-    if d.health:
-        parts.append("<br>".join(_html.escape(h) for h in d.health))
-    if parts:
         foot_style = _paint(
             SAGE, f"font-size:12px;margin:26px 0 0;padding:12px 0 0;border-top:1px solid {LINE}"
         )
-        out.append(f'<div style="{foot_style}">{"<br>".join(parts)}</div>')
+        lines = "<br>".join(_html.escape(f) for f in d.failures)
+        out.append(f'<div style="{foot_style}">{lines}</div>')
 
     out.append("</td></tr></table></td></tr></table>")
     return "".join(out)

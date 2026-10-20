@@ -99,7 +99,7 @@ def test_build_digest_release_map(db):
         1: [Alert("new_anywhere", 1), Alert("new_at_favourite", 1)],
         2: [Alert("new_anywhere", 2)],
     }
-    d = build_digest(db, alerts, TODAY, needs_input=3, health=["fandango: 4 theatres"], failures=[])
+    d = build_digest(db, alerts, TODAY, failures=[])
     assert [e.title for e in d.watchlist] == [
         "Primetime",
         "Klara and the Sun",
@@ -111,12 +111,12 @@ def test_build_digest_release_map(db):
     assert p.kinds == ("new_anywhere", "new_at_favourite")
     k = d.watchlist[1]
     assert k.at_fav is None and k.others == ()
-    assert d.needs_input == 3 and d.rereleases == () and d.soon == ()
+    assert d.rereleases == () and d.soon == ()
 
 
 def test_approaching_only_goes_to_soon(db):
     seed(db)
-    d = build_digest(db, {2: [Alert("approaching", 2)]}, TODAY, 0, [], [])
+    d = build_digest(db, {2: [Alert("approaching", 2)]}, TODAY, [])
     assert [e.title for e in d.soon] == ["Klara and the Sun"] and d.watchlist == ()
 
 
@@ -129,8 +129,6 @@ def test_render_text_contains_release_map(db):
             2: [Alert("new_anywhere", 2)],
         },
         TODAY,
-        1,
-        ["fandango: 4 theatres"],
         [],
     )
     txt = render_text(d)
@@ -144,19 +142,18 @@ def test_render_text_contains_release_map(db):
         and "not playing at your favourites" in txt
         and "nearest is 18 mi" in txt
     )
-    assert "1 film needs your input" in txt
-    assert "fandango: 4 theatres" in txt
+    assert "fandango" not in txt  # no health footer any more
     html = render_html(d)
     assert "Primetime" in html and "Landmark Midtown" in html
 
 
 def test_subject_and_emptiness(db):
     seed(db)
-    d = build_digest(db, {1: [Alert("new_anywhere", 1)]}, TODAY, 0, [], [])
+    d = build_digest(db, {1: [Alert("new_anywhere", 1)]}, TODAY, [])
     assert subject(d) == "sortie: 1 new film near you"
-    e = build_digest(db, {}, TODAY, 0, [], [])
+    e = build_digest(db, {}, TODAY, [])
     assert is_empty(e) and subject(e) == "sortie: nothing new"
-    f = build_digest(db, {}, TODAY, 0, [], ["Landmark Midtown: HTTP 403"])
+    f = build_digest(db, {}, TODAY, ["Landmark Midtown: HTTP 403"])
     assert not is_empty(f) and subject(f) == "sortie: 1 fetch failure"
     assert "FAILURES" in render_text(f) and "HTTP 403" in render_text(f)
 
@@ -168,8 +165,8 @@ def test_long_theatre_name_keeps_a_gap_before_the_distance():
     assert "Harkins Tempe Marketplace 16  2 mi" in _render_entry(e)[1]
 
 
-def one(e, needs_input=0, health=(), failures=()):
-    return Digest(TODAY, (e,), (), (), needs_input, tuple(health), tuple(failures))
+def one(e, failures=()):
+    return Digest(TODAY, (e,), (), (), tuple(failures))
 
 
 def test_html_marks_favourite_cinema_with_a_diamond():
@@ -213,26 +210,29 @@ def test_html_also_line_names_three_theatres_then_counts_the_rest():
 def test_html_keeps_failures_at_the_end_under_a_notice_at_the_top():
     far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(5, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
-    html = render_html(one(e, health=["fandango: 4 theatres"], failures=["watchlist sync: boom"]))
+    html = render_html(one(e, failures=["watchlist sync: boom"]))
     assert html.index("1 error today") < html.index("Poltergeist")
     assert html.index("watchlist sync: boom") > html.index("Poltergeist")
-    assert "fandango: 4 theatres" in html
+
+
+def test_html_has_no_footer_without_failures():
+    # the health lines and the queue count used to sit under a rule at the bottom. gone
+    far = TheatreLine("Regal Gilbert", 10.0, date(2026, 10, 5), False)
+    e = FilmEntry(5, "Poltergeist", 1982, ("new_anywhere",), far, None, ())
+    html = render_html(one(e))
+    assert "waiting on you" not in html and "border-top" not in html
 
 
 def test_html_escapes_a_title():
     far = TheatreLine("Regal & Gilbert", 10.0, date(2026, 10, 5), False)
     e = FilmEntry(6, "Dungeons & Dragons", 2023, ("new_anywhere",), far, None, ())
-    html = render_html(
-        one(e, health=["fandango: 4 & theatres"], failures=["watchlist sync: boom & bust"])
-    )
+    html = render_html(one(e, failures=["watchlist sync: boom & bust"]))
     assert "Dungeons &amp; Dragons" in html
     assert "Dungeons & Dragons" not in html  # never left unescaped
     assert "Regal &amp; Gilbert" in html  # theatre name
     assert "Regal & Gilbert" not in html
     assert "watchlist sync: boom &amp; bust" in html  # failure string
     assert "watchlist sync: boom & bust" not in html
-    assert "fandango: 4 &amp; theatres" in html  # health string
-    assert "fandango: 4 & theatres" not in html
 
 
 def test_html_has_no_style_block_or_class_attributes():

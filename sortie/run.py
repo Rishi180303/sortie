@@ -16,7 +16,7 @@ from sortie.clients.tmdb import TmdbClient
 from sortie.config import Config, Secrets
 from sortie.http import HttpClient
 from sortie.matching.resolve import ResolveResult, resolve_pending
-from sortie.models import Digest, FetchLog, Film, FilmState, MatchQueue, Setting
+from sortie.models import Digest, FetchLog, Film, FilmState, Setting
 from sortie.sources.base import ShowtimeSource
 from sortie.sync.films import hydrate_film
 from sortie.sync.showtimes import SweepResult, sweep_showtimes
@@ -277,15 +277,8 @@ def run_daily(
                 if rt.mailer is not None:
                     mark_alerted(state, ts, now)
         report.alerts = len(alerts)
-        needs_input = (
-            db.execute(
-                select(func.count()).select_from(MatchQueue).where(MatchQueue.resolved_at.is_(None))
-            ).scalar()
-            or 0
-        )
-
         # 9. build digest and send if there is something to say
-        digest = build_digest(db, alerts, today, needs_input, report.health, report.failures)
+        digest = build_digest(db, alerts, today, report.failures)
         if rt.mailer is not None and not is_empty(digest):
             subj, text, html = subject(digest), render_text(digest), render_html(digest)
             rt.mailer(subj, text, html)
