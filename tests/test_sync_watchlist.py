@@ -5,19 +5,23 @@ from sqlalchemy import select
 from sortie.clients.letterboxd import WatchlistItem
 from sortie.http import FetchError
 from sortie.models import Film, WatchlistEntry
-from sortie.sync.watchlist import sync_watchlist
+from sortie.sync.watchlist import sync_list, sync_watchlist
 
 NOW = datetime(2026, 9, 8, 9, 0, tzinfo=UTC)
 
 
 class FakeLb:
-    def __init__(self, items, ids):
-        self.items = items
+    def __init__(self, items, ids, items_by_path=None):
+        self.watchlist_items = items
         self.ids = ids
+        self.items_by_path = items_by_path or {}
         self.id_calls = []
 
     def watchlist(self, username, max_pages=100):
-        return self.items
+        return self.watchlist_items
+
+    def items(self, path, max_pages=100):
+        return self.items_by_path[path]
 
     def tmdb_id_for(self, slug):
         self.id_calls.append(slug)
@@ -37,9 +41,9 @@ def test_first_sync_adds_and_resolves(db):
     lb = FakeLb([WatchlistItem("a", "A", 2026), WatchlistItem("b", "B", None)], {"a": 11})
     r = sync_watchlist(db, lb, "example-user", NOW, bare_film(db))
     assert (r.added, r.removed, r.resolved, r.unresolved, r.total_active) == (2, 0, 1, 1, 2)
-    a = db.get(WatchlistEntry, "a")
+    a = db.get(WatchlistEntry, ("watchlist", "a"))
     assert a.tmdb_id == 11 and a.first_seen == NOW and a.removed_at is None
-    assert db.get(WatchlistEntry, "b").tmdb_id is None
+    assert db.get(WatchlistEntry, ("watchlist", "b")).tmdb_id is None
 
 
 def test_second_sync_soft_deletes_and_retries_unresolved(db):
@@ -48,8 +52,8 @@ def test_second_sync_soft_deletes_and_retries_unresolved(db):
     lb2 = FakeLb([WatchlistItem("b", "B", None), WatchlistItem("c", "C", 1999)], {"b": 22, "c": 33})
     r = sync_watchlist(db, lb2, "u", NOW, bare_film(db))
     assert (r.added, r.removed, r.resolved, r.total_active) == (1, 1, 2, 2)
-    assert db.get(WatchlistEntry, "a").removed_at == NOW
-    assert db.get(WatchlistEntry, "b").tmdb_id == 22
+    assert db.get(WatchlistEntry, ("watchlist", "a")).removed_at == NOW
+    assert db.get(WatchlistEntry, ("watchlist", "b")).tmdb_id == 22
     assert lb2.id_calls == ["b", "c"]  # "a" is removed; already-resolved slugs are not re-fetched
 
 
@@ -67,16 +71,16 @@ def test_entry_that_fails_to_resolve_is_isolated(db):
     r = sync_watchlist(db, lb, "u", NOW, bare_film(db))
     assert r.resolved == 1 and r.unresolved == 1
     assert len(r.errors) == 1 and "bad" in r.errors[0]
-    assert db.get(WatchlistEntry, "good").tmdb_id == 11
+    assert db.get(WatchlistEntry, ("watchlist", "good")).tmdb_id == 11
 
 
 def test_readded_entry_is_reactivated(db):
     lb = FakeLb([WatchlistItem("a", "A", 2026)], {"a": 11})
     sync_watchlist(db, lb, "u", NOW, bare_film(db))
     sync_watchlist(db, FakeLb([], {}), "u", NOW, bare_film(db))
-    assert db.get(WatchlistEntry, "a").removed_at == NOW
+    assert db.get(WatchlistEntry, ("watchlist", "a")).removed_at == NOW
     sync_watchlist(db, lb, "u", NOW, bare_film(db))
-    e = db.get(WatchlistEntry, "a")
+    e = db.get(WatchlistEntry, ("watchlist", "a"))
     assert e.removed_at is None and e.tmdb_id == 11
     assert len(db.execute(select(WatchlistEntry)).scalars().all()) == 1
 
@@ -95,5 +99,34 @@ def test_entry_whose_tmdb_film_is_missing_is_isolated(db):
     r = sync_watchlist(db, lb, "u", NOW, ensure)
     assert r.resolved == 1 and r.unresolved == 1
     assert len(r.errors) == 1 and "cartoon" in r.errors[0]
-    assert db.get(WatchlistEntry, "cartoon").tmdb_id is None
-    assert db.get(WatchlistEntry, "good").tmdb_id == 11
+    assert db.get(WatchlistEntry, ("watchlist", "cartoon")).tmdb_id is None
+    assert db.get(WatchlistEntry, ("watchlist", "good")).tmdb_id == 11
+
+
+def test_a_list_keeps_its_own_rows_beside_the_watchlist(db):
+    lb = FakeLb(
+        [WatchlistItem("a", "A", 2026)],
+        {"a": 11, "c": 33},
+        {"u/list/x": [WatchlistItem("a", "A", 2026), WatchlistItem("c", "C", 1999)]},
+    )
+    sync_watchlist(db, lb, "u", NOW, bare_film(db))
+    r = sync_list(db, lb, "u/list/x", NOW, bare_film(db))
+    assert (r.added, r.removed, r.total_active) == (2, 0, 2)
+    assert db.get(WatchlistEntry, ("u/list/x", "a")).tmdb_id == 11
+    assert db.get(WatchlistEntry, ("u/list/x", "c")).tmdb_id == 33
+    assert len(db.execute(select(WatchlistEntry)).scalars().all()) == 3
+
+
+def test_a_film_leaving_a_list_stays_on_the_watchlist(db):
+    lb = FakeLb(
+        [WatchlistItem("a", "A", 2026)],
+        {"a": 11},
+        {"u/list/x": [WatchlistItem("a", "A", 2026)]},
+    )
+    sync_watchlist(db, lb, "u", NOW, bare_film(db))
+    sync_list(db, lb, "u/list/x", NOW, bare_film(db))
+    lb.items_by_path["u/list/x"] = []
+    r = sync_list(db, lb, "u/list/x", NOW, bare_film(db))
+    assert (r.removed, r.total_active) == (1, 0)
+    assert db.get(WatchlistEntry, ("u/list/x", "a")).removed_at == NOW
+    assert db.get(WatchlistEntry, ("watchlist", "a")).removed_at is None

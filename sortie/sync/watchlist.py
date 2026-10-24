@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sortie.clients.letterboxd import LetterboxdClient
+from sortie.clients.letterboxd import LetterboxdClient, WatchlistItem
 from sortie.http import FetchError
 from sortie.models import WatchlistEntry
 
@@ -27,16 +27,37 @@ def sync_watchlist(
     now: datetime,
     ensure_film: Callable[[int], None],
 ) -> WatchlistSyncResult:
-    items = lb.watchlist(username)
+    return _sync(db, lb, lb.watchlist(username), "watchlist", now, ensure_film)
 
+
+def sync_list(
+    db: Session,
+    lb: LetterboxdClient,
+    path: str,
+    now: datetime,
+    ensure_film: Callable[[int], None],
+) -> WatchlistSyncResult:
+    return _sync(db, lb, lb.items(path), path, now, ensure_film)
+
+
+def _sync(
+    db: Session,
+    lb: LetterboxdClient,
+    items: list[WatchlistItem],
+    source: str,
+    now: datetime,
+    ensure_film: Callable[[int], None],
+) -> WatchlistSyncResult:
     # build dict of fetched items by slug
     fetched = {}
     for item in items:
         fetched[item.slug] = item
 
-    # build dict of existing entries by slug
+    # build dict of this source's existing entries by slug
     existing = {}
-    for entry in db.execute(select(WatchlistEntry)).scalars():
+    for entry in db.execute(
+        select(WatchlistEntry).where(WatchlistEntry.source == source)
+    ).scalars():
         existing[entry.letterboxd_slug] = entry
 
     # add new entries and reactivate removed ones
@@ -46,7 +67,11 @@ def sync_watchlist(
         if e is None:
             db.add(
                 WatchlistEntry(
-                    letterboxd_slug=slug, title_raw=item.title, year_raw=item.year, first_seen=now
+                    source=source,
+                    letterboxd_slug=slug,
+                    title_raw=item.title,
+                    year_raw=item.year,
+                    first_seen=now,
                 )
             )
             added += 1
@@ -70,7 +95,7 @@ def sync_watchlist(
     active = (
         db.execute(
             select(WatchlistEntry)
-            .where(WatchlistEntry.removed_at.is_(None))
+            .where(WatchlistEntry.source == source, WatchlistEntry.removed_at.is_(None))
             .order_by(WatchlistEntry.first_seen, WatchlistEntry.letterboxd_slug)
         )
         .scalars()

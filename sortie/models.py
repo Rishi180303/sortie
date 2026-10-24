@@ -55,6 +55,8 @@ class FilmAlias(Base):
 class WatchlistEntry(Base):
     __tablename__ = "watchlist_entry"
 
+    # "watchlist", or the path of the letterboxd list the film came from
+    source: Mapped[str] = mapped_column(String(300), primary_key=True, default="watchlist")
     letterboxd_slug: Mapped[str] = mapped_column(String(200), primary_key=True)
     title_raw: Mapped[str] = mapped_column(String(300))
     year_raw: Mapped[int | None] = mapped_column(Integer)
