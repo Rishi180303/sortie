@@ -39,7 +39,7 @@ def test_load_config_reads_values_and_defaults(tmp_path: Path):
     assert cfg.matching.min_margin == 0.2  # default
 
 
-def test_letterboxd_lists_default_to_none(tmp_path: Path):
+def test_letterboxd_lists_default_to_empty(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text(TOML)
     assert load_config(p).letterboxd.lists == []

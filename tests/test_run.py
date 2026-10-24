@@ -308,6 +308,35 @@ def test_old_film_without_a_second_signal_is_reported_not_flagged(engine, db):
     assert report.alerts == 0
 
 
+def test_old_film_on_a_list_is_not_reported_as_unconfirmed(engine, db):
+    class HeatListLb(FakeLb):
+        def watchlist(self, username, max_pages=100):
+            return []
+
+        def items(self, path, max_pages=100):
+            return [WatchlistItem("heat", "Heat", 1995)]
+
+        def tmdb_id_for(self, slug):
+            return 2
+
+    cfg = CFG.model_copy(
+        update={
+            "letterboxd": LetterboxdCfg(
+                username="example-user", lists=["example-user/list/cool-films"]
+            )
+        }
+    )
+    src = FakeSource(
+        theatres=[TheatreInfo("far", "Landmark Midtown", distance_miles=18.0)],
+        showings={"far": [ShowingInfo("902", "Heat (2026)", 2026, date(2026, 9, 20), ["19:00"])]},
+        details={"902": FilmDetails(170, "Michael Mann", ["Al Pacino", "Robert De Niro"])},
+    )
+    rt = Runtime(sources=[src], tmdb=TwoFilmTmdb(), lb=HeatListLb(), mailer=Mailer())
+    report = run_daily(factory(engine), cfg, SECRETS, rt, today=TODAY, now=NOW)
+    assert report.alerts == 1
+    assert "rereleases: 0 flagged" in report.health
+
+
 def test_fathom_failure_is_reported_and_emailed(engine, db):
     m = Mailer()
     rt = Runtime(

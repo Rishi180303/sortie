@@ -267,6 +267,7 @@ def run_daily(
                 .where(
                     FilmState.last_computed == now,
                     FilmState.is_watchlist.is_(False),
+                    FilmState.is_listed.is_(False),
                     FilmState.is_rerelease.is_(False),
                     Film.us_theatrical_date.is_not(None),
                     Film.us_theatrical_date <= cutoff,
