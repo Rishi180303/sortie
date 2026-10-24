@@ -142,6 +142,34 @@ def test_first_run_emails_watchlist_hit(engine, db):
         )
 
 
+def test_a_film_on_a_configured_list_is_synced_and_emailed(engine, db):
+    class ListOnlyLb(FakeLb):
+        def watchlist(self, username, max_pages=100):
+            return []
+
+        def items(self, path, max_pages=100):
+            assert path == "example-user/list/cool-films"
+            return [WatchlistItem("primetime", "Primetime", 2026)]
+
+    cfg = CFG.model_copy(
+        update={
+            "letterboxd": LetterboxdCfg(
+                username="example-user", lists=["example-user/list/cool-films"]
+            )
+        }
+    )
+    src = make_source(
+        {"far": [ShowingInfo("900", "Primetime (2026)", 2026, date(2026, 9, 25), ["19:00"])]}
+    )
+    m = Mailer()
+    rt = Runtime(sources=[src], tmdb=FakeTmdb(), lb=ListOnlyLb(), http_clients=[], mailer=m)
+    report = run_daily(factory(engine), cfg, SECRETS, rt, today=TODAY, now=NOW)
+    assert report.alerts == 1 and report.emailed is True and report.failures == []
+    assert "list example-user/list/cool-films: 1 active, +1 -0, 0 unresolved" in report.health
+    with factory(engine)() as s:
+        assert s.get(FilmState, 1).is_listed is True
+
+
 def test_no_mailer_does_not_mark_alert_sent(engine, db):
     src = make_source(
         {"far": [ShowingInfo("900", "Primetime (2026)", 2026, date(2026, 9, 25), ["19:00"])]}

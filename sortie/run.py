@@ -21,7 +21,7 @@ from sortie.sources.base import ShowtimeSource
 from sortie.sync.films import hydrate_film
 from sortie.sync.showtimes import SweepResult, sweep_showtimes
 from sortie.sync.theatres import refresh_theatres
-from sortie.sync.watchlist import WatchlistSyncResult, sync_watchlist
+from sortie.sync.watchlist import WatchlistSyncResult, sync_list, sync_watchlist
 
 
 @dataclass
@@ -170,6 +170,20 @@ def run_daily(
         except Exception as e:  # one source failing must not stop the run
             report.failures.append(f"watchlist sync: {e}")
         db.commit()
+
+        # the extra letterboxd lists, each on its own so one bad list cannot stop the rest
+        for path in cfg.letterboxd.lists:
+            try:
+                r = sync_list(db, rt.lb, path, now, ensure_film=ensure_film)
+                report.health.append(
+                    f"list {path}: {r.total_active} active, +{r.added} -{r.removed}, "
+                    f"{r.unresolved} unresolved"
+                )
+                for err in r.errors:
+                    report.health.append(f"list {path}: {err}")
+            except Exception as e:
+                report.failures.append(f"list {path} sync: {e}")
+            db.commit()
 
         # 3. theatres, refreshed every theatre_refresh_days
         for src in rt.sources:
