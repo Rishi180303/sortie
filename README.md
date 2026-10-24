@@ -19,6 +19,8 @@ The email looks like this (sample data):
 
 It also tells you when an older film comes back to a screen near you. It only emails when something changed, and if it breaks it emails you right away, so a quiet day really is a quiet day.
 
+You can watch other Letterboxd lists too, not just your watchlist. Add their urls under `lists` in `config.toml` and their films alert the same way, in their own section of the email.
+
 ## status
 
 The collector runs end to end and is tested against the real sites: watchlist sync, theatre discovery, the Fandango showtime source, matching against TMDb, and the email digest. `sortie run` does a full daily pass. A web ui now covers the match queue and cinema tracking, see "the web ui" below. Fathom's event feed is used to confirm re-releases. AMC is not implemented yet, so Fandango is the only showtime source.
