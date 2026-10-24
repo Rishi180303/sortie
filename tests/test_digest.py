@@ -114,6 +114,22 @@ def test_build_digest_release_map(db):
     assert d.rereleases == () and d.soon == ()
 
 
+def test_a_film_from_a_list_gets_its_own_section(db):
+    seed(db)
+    klara = db.get(FilmState, 2)
+    klara.is_watchlist = False
+    klara.is_listed = True
+    db.flush()
+    d = build_digest(db, {1: [Alert("new_anywhere", 1)], 2: [Alert("new_anywhere", 2)]}, TODAY, [])
+    assert [e.title for e in d.watchlist] == ["Primetime"]
+    assert [e.title for e in d.lists] == ["Klara and the Sun"]
+    assert d.rereleases == ()
+    txt = render_text(d)
+    assert txt.index("FROM YOUR WATCHLIST") < txt.index("FROM YOUR LISTS") < txt.index("KLARA")
+    assert "From your lists" in render_html(d)
+    assert subject(d) == "sortie: 2 new films near you"
+
+
 def test_approaching_only_goes_to_soon(db):
     seed(db)
     d = build_digest(db, {2: [Alert("approaching", 2)]}, TODAY, [])
@@ -166,7 +182,7 @@ def test_long_theatre_name_keeps_a_gap_before_the_distance():
 
 
 def one(e, failures=()):
-    return Digest(TODAY, (e,), (), (), tuple(failures))
+    return Digest(TODAY, (e,), (), (), (), tuple(failures))
 
 
 def test_html_marks_favourite_cinema_with_a_diamond():

@@ -41,6 +41,7 @@ class FilmEntry:
 class Digest:
     today: date
     watchlist: tuple[FilmEntry, ...]
+    lists: tuple[FilmEntry, ...]
     rereleases: tuple[FilmEntry, ...]
     soon: tuple[FilmEntry, ...]
     failures: tuple[str, ...]
@@ -72,15 +73,15 @@ def _lines_for(db: Session, tmdb_id: int, today: date) -> dict[int, TheatreLine]
 
 def _entry(
     db: Session, tmdb_id: int, kinds: Sequence[str], today: date
-) -> tuple[FilmEntry | None, bool]:
+) -> tuple[FilmEntry | None, str]:
     film = db.get(Film, tmdb_id)
     state = db.get(FilmState, tmdb_id)
     if film is None or state is None or state.earliest_theatre_id is None:
-        return None, False
+        return None, ""
     lines = _lines_for(db, tmdb_id, today)
     earliest = lines.get(state.earliest_theatre_id)
     if earliest is None:
-        return None, False
+        return None, ""
     at_fav = lines.get(state.earliest_fav_theatre_id) if state.earliest_fav_theatre_id else None
     used = {state.earliest_theatre_id, state.earliest_fav_theatre_id}
 
@@ -96,10 +97,17 @@ def _entry(
 
     others.sort(key=sort_key)
 
+    # which section the film belongs in, watchlist first since it is the strongest signal
+    section = "rereleases"
+    if state.is_watchlist:
+        section = "watchlist"
+    elif state.is_listed:
+        section = "lists"
+
     year = film.us_theatrical_date.year if film.us_theatrical_date else None
     return (
         FilmEntry(tmdb_id, film.title, year, tuple(sorted(kinds)), earliest, at_fav, tuple(others)),
-        state.is_watchlist,
+        section,
     )
 
 
@@ -117,19 +125,18 @@ def build_digest(
     sections: dict[str, list[FilmEntry]] = defaultdict(list)
     for tmdb_id, film_alerts in alerts.items():
         kinds = [a.kind for a in film_alerts]
-        entry, is_watchlist = _entry(db, tmdb_id, kinds, today)
+        entry, section = _entry(db, tmdb_id, kinds, today)
         if entry is None:
             continue
         if kinds == ["approaching"]:
             sections["soon"].append(entry)
-        elif is_watchlist:
-            sections["watchlist"].append(entry)
         else:
-            sections["rereleases"].append(entry)
+            sections[section].append(entry)
 
     return Digest(
         today=today,
         watchlist=tuple(sorted(sections["watchlist"], key=_sort_entry)),
+        lists=tuple(sorted(sections["lists"], key=_sort_entry)),
         rereleases=tuple(sorted(sections["rereleases"], key=_sort_entry)),
         soon=tuple(sorted(sections["soon"], key=_sort_entry)),
         failures=tuple(failures),
@@ -137,7 +144,7 @@ def build_digest(
 
 
 def _count(d: Digest) -> int:
-    return len(d.watchlist) + len(d.rereleases) + len(d.soon)
+    return len(d.watchlist) + len(d.lists) + len(d.rereleases) + len(d.soon)
 
 
 def is_empty(d: Digest) -> bool:
@@ -203,6 +210,7 @@ def render_text(d: Digest) -> str:
         lines += ["FAILURES", *(f"  ! {f}" for f in d.failures), ""]
     for title, entries in (
         ("FROM YOUR WATCHLIST", d.watchlist),
+        ("FROM YOUR LISTS", d.lists),
         ("RE-RELEASES NEAR YOU", d.rereleases),
         ("SHOWING SOON", d.soon),
     ):
@@ -337,6 +345,7 @@ def render_html(d: Digest) -> str:
 
     for title, entries in (
         ("From your watchlist", d.watchlist),
+        ("From your lists", d.lists),
         ("Re-releases", d.rereleases),
         ("Showing soon", d.soon),
     ):
