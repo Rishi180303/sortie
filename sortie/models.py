@@ -111,6 +111,8 @@ class FilmState(Base):
     earliest_date_at_fav: Mapped[date | None] = mapped_column(Date)
     earliest_fav_theatre_id: Mapped[int | None] = mapped_column(ForeignKey("theatre.id"))
     is_watchlist: Mapped[bool] = mapped_column(default=False)
+    # on one of the extra letterboxd lists from the config
+    is_listed: Mapped[bool] = mapped_column(default=False)
     is_rerelease: Mapped[bool] = mapped_column(default=False)
     alerted_new_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     alerted_fav_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

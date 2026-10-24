@@ -21,7 +21,7 @@ def theatre(db, sid, fav=False, dist=5.0, tracked=True):
     return t
 
 
-def film(db, tid=1, watchlist=False):
+def film(db, tid=1, watchlist=False, listed=False):
     db.add(Film(tmdb_id=tid, title=f"F{tid}"))
     sf = SourceFilm(
         source="fake", source_film_id=str(tid), raw_title=f"F{tid}", tmdb_id=tid, resolution="auto"
@@ -31,6 +31,16 @@ def film(db, tid=1, watchlist=False):
         db.add(
             WatchlistEntry(
                 letterboxd_slug=f"f{tid}", title_raw=f"F{tid}", tmdb_id=tid, first_seen=NOW
+            )
+        )
+    if listed:
+        db.add(
+            WatchlistEntry(
+                source="example-user/list/cool-films",
+                letterboxd_slug=f"f{tid}",
+                title_raw=f"F{tid}",
+                tmdb_id=tid,
+                first_seen=NOW,
             )
         )
     db.flush()
@@ -62,6 +72,15 @@ def test_earliest_anywhere_and_at_favourite(db):
     assert (s.earliest_date_at_fav, s.earliest_fav_theatre_id) == (date(2026, 9, 30), fav.id)
     assert s.is_watchlist is True and s.is_rerelease is False
     assert s.last_seen_showing == TODAY and s.last_computed == NOW
+
+
+def test_a_film_from_a_list_is_listed_but_not_watchlisted(db):
+    t = theatre(db, "t")
+    sf = film(db, 1, listed=True)
+    show(db, sf, t, date(2026, 9, 25))
+    compute_film_states(db, TODAY, NOW)
+    s = db.get(FilmState, 1)
+    assert s.is_listed is True and s.is_watchlist is False
 
 
 def test_tie_prefers_favourite_then_distance(db):

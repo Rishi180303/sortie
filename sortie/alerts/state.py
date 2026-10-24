@@ -45,15 +45,18 @@ def compute_film_states(
         by_film[tmdb_id].append((show_date, theatre))
         raw_titles[tmdb_id].add(raw_title)
 
-    # get active watchlist entries
-    watchlisted = set(
-        db.execute(
-            select(WatchlistEntry.tmdb_id).where(
-                WatchlistEntry.tmdb_id.is_not(None),
-                WatchlistEntry.removed_at.is_(None),
-            )
-        ).scalars()
+    # split the active entries into the watchlist and the extra lists
+    watchlisted = set()
+    listed = set()
+    active = select(WatchlistEntry.source, WatchlistEntry.tmdb_id).where(
+        WatchlistEntry.tmdb_id.is_not(None),
+        WatchlistEntry.removed_at.is_(None),
     )
+    for source, tmdb_id in db.execute(active):
+        if source == "watchlist":
+            watchlisted.add(tmdb_id)
+        else:
+            listed.add(tmdb_id)
 
     # compute state for each film
     for tmdb_id, rows in by_film.items():
@@ -92,6 +95,7 @@ def compute_film_states(
             state.earliest_fav_theatre_id = None
 
         state.is_watchlist = tmdb_id in watchlisted
+        state.is_listed = tmdb_id in listed
         film = db.get(Film, tmdb_id)
         assert film is not None  # source_film.tmdb_id is a foreign key to film
         state.is_rerelease = is_rerelease(

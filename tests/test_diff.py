@@ -27,6 +27,10 @@ def test_non_watchlist_non_rerelease_never_alerts():
     assert kinds(st(is_watchlist=False, is_rerelease=True)) == ["new_anywhere"]
 
 
+def test_a_film_from_a_list_alerts_like_the_watchlist():
+    assert kinds(st(is_watchlist=False, is_listed=True)) == ["new_anywhere"]
+
+
 def test_first_sighting_anywhere():
     assert kinds(st()) == ["new_anywhere"]
 

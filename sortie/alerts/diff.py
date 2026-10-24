@@ -14,8 +14,8 @@ class Alert:
 
 
 def transitions(state: FilmState, today: date, approaching_days: int) -> list[Alert]:
-    # non-watchlist non-rerelease films never alert
-    if not (state.is_watchlist or state.is_rerelease):
+    # a film alerts only if it is on the watchlist, on a list, or a re-release
+    if not (state.is_watchlist or state.is_listed or state.is_rerelease):
         return []
     if state.earliest_date_anywhere is None:
         return []
