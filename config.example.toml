@@ -4,6 +4,8 @@ radius_miles = 25
 
 [letterboxd]
 username = "your-username"
+# other public lists to watch, by url. films on them alert like watchlist films
+lists = []
 
 [sources]
 amc = true          # requires AMC_VENDOR_KEY

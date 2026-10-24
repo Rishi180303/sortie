@@ -39,6 +39,25 @@ def test_load_config_reads_values_and_defaults(tmp_path: Path):
     assert cfg.matching.min_margin == 0.2  # default
 
 
+def test_letterboxd_lists_default_to_none(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    p.write_text(TOML)
+    assert load_config(p).letterboxd.lists == []
+
+
+def test_letterboxd_lists_are_kept_as_paths(tmp_path: Path):
+    p = tmp_path / "config.toml"
+    lists = (
+        'lists = ["https://letterboxd.com/example-user/list/cool-films/", '
+        '"example-user/list/more-films"]'
+    )
+    p.write_text(TOML.replace('username = "example-user"', f'username = "example-user"\n{lists}'))
+    assert load_config(p).letterboxd.lists == [
+        "example-user/list/cool-films",
+        "example-user/list/more-films",
+    ]
+
+
 def test_load_config_missing_required_section_raises(tmp_path: Path):
     p = tmp_path / "config.toml"
     p.write_text('[location]\npostal_code = "10001"\n')

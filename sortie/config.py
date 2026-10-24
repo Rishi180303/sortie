@@ -30,6 +30,16 @@ class LocationCfg(BaseModel):
 
 class LetterboxdCfg(BaseModel):
     username: str
+    # other letterboxd lists to watch, as urls or as "user/list/name" paths
+    lists: list[str] = []
+
+    @field_validator("lists")
+    @classmethod
+    def _as_paths(cls, v: list[str]) -> list[str]:
+        out = []
+        for item in v:
+            out.append(item.removeprefix("https://letterboxd.com/").strip("/"))
+        return out
 
 
 class SourcesCfg(BaseModel):
