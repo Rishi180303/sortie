@@ -91,3 +91,14 @@ TV_PAGE = """
 def test_a_tv_entry_is_not_treated_as_a_film():
     # letterboxd lists miniseries too, and its hidden id can point at a dead film record
     assert parse_film_tmdb_id(TV_PAGE) is None
+
+
+def test_items_reads_any_list_page(routed, http):
+    routed.add("/example-user/list/cool-films/page/2/", 200, "<html><body></body></html>")
+    routed.add("/example-user/list/cool-films/", 200, PAGE)
+    items = LetterboxdClient(http).items("example-user/list/cool-films")
+    assert [i.slug for i in items] == ["look-back-2026", "infernal-affairs", "remain"]
+    assert [call[1] for call in routed.calls] == [
+        "https://letterboxd.com/example-user/list/cool-films/",
+        "https://letterboxd.com/example-user/list/cool-films/page/2/",
+    ]

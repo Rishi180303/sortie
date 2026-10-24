@@ -77,17 +77,21 @@ class LetterboxdClient:
         self.http = http
 
     def watchlist(self, username: str, max_pages: int = 100) -> list[WatchlistItem]:
+        return self.items(f"{username}/watchlist", max_pages)
+
+    def items(self, path: str, max_pages: int = 100) -> list[WatchlistItem]:
+        # path is the part after letterboxd.com, like "user/watchlist" or "user/list/name"
         out: list[WatchlistItem] = []
         seen: set[str] = set()
 
         for page in range(1, max_pages + 1):
-            # page 1 is /{user}/watchlist/, later pages have page/{n}/
+            # page 1 is /{path}/, later pages have page/{n}/
             if page == 1:
-                url = f"{BASE}/{username}/watchlist/"
+                url = f"{BASE}/{path}/"
             else:
-                url = f"{BASE}/{username}/watchlist/page/{page}/"
+                url = f"{BASE}/{path}/page/{page}/"
 
-            r = self.http.get(url, target=f"watchlist-{username}-p{page}")
+            r = self.http.get(url, target=f"{path.replace('/', '-')}-p{page}")
             items = parse_watchlist_page(r.text)
 
             # only keep items we haven't seen yet
